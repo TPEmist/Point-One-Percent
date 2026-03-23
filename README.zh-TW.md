@@ -66,9 +66,9 @@ Project Aegis 基於「雙軌架構」的願景設計，能從開源的本地實
 
 | 瀏覽器 Agent | 整合方式 | 參考文件 |
 |---|---|---|
-| **OpenHands** | MCP Tool Call | [快速上手 §4](#4-快速上手--openclaw--nemoclaw--claude-code--openhands) |
-| **OpenClaw + browser-use** | MCP Tool Call | [快速上手 §4](#4-快速上手--openclaw--nemoclaw--claude-code--openhands) |
-| **NemoClaw（沙箱）** | 沙箱內 MCP Tool Call | [快速上手 §4](#4-快速上手--openclaw--nemoclaw--claude-code--openhands) |
+| **OpenHands** | MCP Tool Call | [快速上手 §5](#5-快速上手--openclaw--nemoclaw--claude-code--openhands) |
+| **OpenClaw + browser-use** | MCP Tool Call | [快速上手 §5](#5-快速上手--openclaw--nemoclaw--claude-code--openhands) |
+| **NemoClaw（沙箱）** | 沙箱內 MCP Tool Call | [快速上手 §5](#5-快速上手--openclaw--nemoclaw--claude-code--openhands) |
 | **自訂 Playwright / Selenium** | Python SDK `AegisClient` | [整合指南](./docs/INTEGRATION_GUIDE.zh-TW.md) |
 | **Skyvern / browser-use** | Python SDK 中間層 | [整合指南](./docs/INTEGRATION_GUIDE.zh-TW.md) |
 
