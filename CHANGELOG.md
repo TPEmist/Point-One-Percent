@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Developer Tools**: Added `AEGIS_UNMASK_CARDS` environment variable to optionally disable card masking (e.g., `****` default) during local testing and E2E validation.
 
+## [0.3.3] - 2026-03-23
+### Added
+- **Browser Automation Layer (`AegisBrowserInjector`)**: Implemented CDP-based cross-origin iframe traversal logic to securely auto-fill real cards for Playwright or browser-use workflows, hiding raw PAN from the agent's context.
+- **Optional Dependencies (`[browser]`)**: Added `playwright` directly back into the extra dependencies to streamline installation (`pip install aegis-pay[browser]`).
+- **Core Dependencies**: Registered explicitly missing `python-dotenv` for local setups leveraging `LocalVaultProvider`.
+- **Scripts Organization**: Moved root `inspect_stripe.py` and `scrape_wiki_donate.py` developer tools to an enclosed `scripts/` directory for cleaner builds.
+
+### Fixed
+- **Static Analysis Cleanup**: Removed unused modules like `import asyncio` in `mcp_server.py`, following a Vulture static code analysis pass.
+
 ## [0.2.0] - 2026-03-20
 ### Added
 - **Open-Source Framework Support**: Added explicit MCP configuration and integration documentation for **OpenClaw**, **NemoClaw**, Claude Code, and OpenHands.

@@ -23,6 +23,10 @@ Guardrails are the "brains" that decide whether a payment should be approved or 
 - **LLMGuardrailEngine:** A deep semantic analyzer (powered by GPT-4o-mini) that evaluates the agent's reasoning against the requested `GuardrailPolicy`.
 - **GuardrailPolicy:** A set of rules (e.g., `max_amount`, `allowed_vendors`, `purpose_description`) defined by the human user.
 
+### 🌐 Browser Injector (Secure Fulfillment)
+For agent frameworks evaluating DOMs, Aegis securely fulfills authorized payments without leaking the card directly to the LLM.
+- **AegisBrowserInjector**: Connects strictly out-of-band via CDP (`Chrome DevTools Protocol`). Traverses cross-origin iframes (i.e. Stripe Elements) and auto-populates `<input>` elements safely.
+
 ---
 
 ## Local Development Setup

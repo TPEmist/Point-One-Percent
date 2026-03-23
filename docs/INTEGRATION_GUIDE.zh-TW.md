@@ -1,4 +1,4 @@
-[English](./INTEGRATION_GUIDE.md) | [繁體中文](./INTEGRATION_GUIDE.zh-TW.md)
+[English](./INTEGRATION_GUIDE.md) | [中文](./INTEGRATION_GUIDE.zh-TW.md)
 
 # Aegis 整合指南
 

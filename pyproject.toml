@@ -4,14 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aegis-pay"
-version = "0.3.0"
+version = "0.3.3"
 description = "Semantic Payment Guardrail for AI Agents"
 authors = [{name="Aegis Team"}]
-readme = "README.md"
+readme = "README.pypi.md"
 license = {text="MIT"}
 requires-python = ">=3.10"
 dependencies = [
     "pydantic",
+    "python-dotenv",
 ]
 
 [project.optional-dependencies]
@@ -21,7 +22,13 @@ langchain = ["langchain-core"]
 mcp = ["mcp>=1.26.0"]
 dashboard = ["streamlit>=1.55.0"]
 dev = ["pytest", "pytest-asyncio"]
-all = ["aegis-pay[llm,stripe,langchain,mcp,dashboard]"]
+browser = ["playwright>=1.40.0"]
+all = ["aegis-pay[llm,stripe,langchain,mcp,dashboard,browser]"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["aegis"]
+
+[dependency-groups]
+dev = [
+    "vulture>=2.15",
+]

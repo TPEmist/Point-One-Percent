@@ -20,12 +20,16 @@ class AegisStateTracker:
             )
         """)
         # Create issued_seals table
+        # v0.3.0: Added card_number, cvv, expiration_date for BYOC/Injection
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS issued_seals (
                 seal_id TEXT PRIMARY KEY,
                 amount FLOAT,
                 vendor TEXT,
                 status TEXT,
+                card_number TEXT,
+                cvv TEXT,
+                expiration_date TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -53,13 +57,29 @@ class AegisStateTracker:
         self.conn.commit()
         self.daily_spend_total = self._get_today_spent()
 
-    def record_seal(self, seal_id: str, amount: float, vendor: str, status: str = "Issued"):
+    def record_seal(self, seal_id: str, amount: float, vendor: str, status: str = "Issued", card_number: str = None, cvv: str = None, expiration_date: str = None):
         cursor = self.conn.cursor()
         cursor.execute("""
-            INSERT INTO issued_seals (seal_id, amount, vendor, status)
-            VALUES (?, ?, ?, ?)
-        """, (seal_id, amount, vendor, status))
+            INSERT INTO issued_seals (seal_id, amount, vendor, status, card_number, cvv, expiration_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (seal_id, amount, vendor, status, card_number, cvv, expiration_date))
         self.conn.commit()
+
+    def get_seal_details(self, seal_id: str) -> dict:
+        """
+        Retrieves full card details for a given seal_id. 
+        Note: This is intended for local trusted mode (BYOC).
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT card_number, cvv, expiration_date FROM issued_seals WHERE seal_id = ?", (seal_id,))
+        row = cursor.fetchone()
+        if row:
+            return {
+                "card_number": row[0],
+                "cvv": row[1],
+                "expiration_date": row[2]
+            }
+        return {}
 
     def mark_used(self, seal_id: str):
         cursor = self.conn.cursor()

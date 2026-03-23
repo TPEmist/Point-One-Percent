@@ -31,17 +31,17 @@ async def run_stripe_injection_test():
         
         page = await browser.new_page()
         import os
-        # 3. Navigate to the simulated Stripe cross-origin layout
-        demo_url = f"file://{os.path.abspath('examples/dummy_checkout.html')}"
+        # 3. Navigate to Wikimedia donate page
+        demo_url = "https://payments.wikimedia.org/index.php?title=Special:GravyGateway&appeal=JimmyQuote&country=US&currency=USD&payment_method=cc&recurring=0&gateway=gravy&uselang=en&amount=3.1&wmf_medium=spontaneous&wmf_campaign=spontaneous&wmf_source=fr-redir.default%7Edefault%7Edefault%7Edefault%7Econtrol.cc&wmf_key=vw_1512%7Evh_945%7EotherAmt_0%7EvalidateError_1%7Eptf_1%7Etime_7&referrer=www.google.com%2F"
         print(f"[Playwright] Navigating to {demo_url} ...")
         try:
-            await page.goto(demo_url, wait_until="domcontentloaded", timeout=15000)
+            await page.goto(demo_url, wait_until="domcontentloaded", timeout=60000)
         except Exception as e:
             print(f"Navigation error: {e}")
         
         # 4. Wait for Stripe's cross-origin iframes to load
-        print("[Playwright] Waiting 2 seconds to simulate Stripe iframes to load...")
-        await asyncio.sleep(2)
+        print("[Playwright] Waiting 10 seconds for Wikimedia page to load fully...")
+        await asyncio.sleep(10)
         
         # 5. Instantiate the AegisBrowserInjector and connect via CDP
         print("[Aegis Injector] Connecting via CDP to inject payment info...")
@@ -50,12 +50,12 @@ async def run_stripe_injection_test():
         success = await injector.inject_payment_info(seal_id, cdp_url="http://localhost:9222")
         
         if success:
-            print("[Aegis Injector] ✅ SUCCESS! Card details injected into Stripe iframe.")
+            print("[Aegis Injector] ✅ SUCCESS! Card details injected into Wiki frame.")
         else:
-            print("[Aegis Injector] ❌ FAILED! Could not find Stripe input fields.")
+            print("[Aegis Injector] ❌ FAILED! Could not find input fields.")
             
         # Save screenshot for proof in correct Artifact Path
-        screenshot_path = "/Users/tpemist/.gemini/antigravity/brain/511eb8dc-e470-4195-995a-2d214717f5e9/stripe_proof.png"
+        screenshot_path = "/Users/tpemist/.gemini/antigravity/brain/511eb8dc-e470-4195-995a-2d214717f5e9/wiki_proof.png"
         await page.screenshot(path=screenshot_path)
         print(f"Screenshot saved to {screenshot_path}")
             

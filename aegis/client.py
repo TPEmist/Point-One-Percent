@@ -54,7 +54,10 @@ class AegisClient:
             seal.seal_id, 
             seal.authorized_amount, 
             intent.target_vendor, 
-            status=seal.status
+            status=seal.status,
+            card_number=seal.card_number,
+            cvv=seal.cvv,
+            expiration_date=seal.expiration_date
         )
         
         if seal.status.lower() != "rejected":
