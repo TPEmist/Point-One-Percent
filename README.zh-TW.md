@@ -7,7 +7,64 @@ Project Aegis 是專為 Agentic AI（如 OpenClaw、NemoClaw、Claude Code、Ope
 ## 1. 問題背景
 當 Agentic AI 在自動化工作流程中遭遇付費牆（如網域註冊、API 額度、運算資源擴展）時，通常被迫停下來等待人類介入。然而，直接將實體信用卡提供給 Agent 會引發「信任危機」：幻覺（hallucination）或無限迴圈可能導致信用卡被刷爆。
 
-## 2. 安裝
+## 2. 生態系定位：Aegis + 瀏覽器 Agent = 所向無敵
+
+現代 Agentic 工作流程需要兩種互補的能力。Aegis 負責其中之一，並把它做到極致。
+
+### 🎯 Aegis 是什麼 — 以及不是什麼
+
+**Aegis 是 Agent 的財務大腦與保險箱。** 它負責：
+- ✅ 評估某筆購買是否*應該*發生（語意護欄審核）
+- ✅ 執行硬性預算限制（每日上限、單筆上限）
+- ✅ 核發一次性虛擬卡，確保真實信用卡資訊絕不外洩
+- ✅ 完整保存每一筆支付嘗試的稽核紀錄
+
+**Aegis 不做以下事情：**
+- ❌ 瀏覽網站或操作 DOM 元素
+- ❌ 破解 CAPTCHA 或繞過反機器人機制
+- ❌ 代替 Agent 填表或點擊「送出」
+
+那些是瀏覽器 Agent 的工作。
+
+### 🤝 協作交接：Aegis 如何與瀏覽器 Agent 協同運作
+
+真正的威力來自 Aegis 與瀏覽器自動化 Agent（如 OpenHands、browser-use、Skyvern）的配合。這是一種清晰的職責分工：
+
+```
+1. [瀏覽器 Agent]  導航至網站，抓取商品資訊，到達結帳頁面。
+        │
+        │  （遇到付費牆 / 支付表單）
+        ▼
+2. [瀏覽器 Agent → Aegis MCP]  呼叫 request_virtual_card(amount, vendor, reasoning)
+        │
+        │  （Aegis 評估：預算OK？供應商已核准？沒有幻覺？）
+        ▼
+3. [Aegis]  核發一次性虛擬卡（Stripe 模式）或模擬卡（開發模式）
+            向 Agent 回傳遮罩後的卡號。完整卡號僅透過
+            可信任的本地執行環境注入 — 絕不進入 LLM 的上下文。
+        │
+        ▼
+4. [瀏覽器 Agent]  使用核准的憑證完成結帳表單填寫。
+        │
+        ▼
+5. [The Vault]  Dashboard 記錄交易。虛擬卡立即銷毀。
+```
+
+### 🌐 支援的瀏覽器 Agent 整合
+
+| 瀏覽器 Agent | 整合方式 | 參考文件 |
+|---|---|---|
+| **OpenHands** | MCP Tool Call | [快速上手 §4](#4-快速上手--openclaw--nemoclaw--claude-code--openhands) |
+| **OpenClaw + browser-use** | MCP Tool Call | [快速上手 §4](#4-快速上手--openclaw--nemoclaw--claude-code--openhands) |
+| **NemoClaw（沙箱）** | 沙箱內 MCP Tool Call | [快速上手 §4](#4-快速上手--openclaw--nemoclaw--claude-code--openhands) |
+| **自訂 Playwright / Selenium** | Python SDK `AegisClient` | [整合指南](./docs/INTEGRATION_GUIDE.zh-TW.md) |
+| **Skyvern / browser-use** | Python SDK 中間層 | [整合指南](./docs/INTEGRATION_GUIDE.zh-TW.md) |
+
+> 完整程式碼範例（包含 Playwright 注入與 System Prompt 模板）請參閱 **[docs/INTEGRATION_GUIDE.zh-TW.md](./docs/INTEGRATION_GUIDE.zh-TW.md)**。
+
+---
+
+## 3. 安裝
 
 ```bash
 # 僅核心功能（關鍵字護欄 + mock provider，零外部依賴）
@@ -26,7 +83,7 @@ pip install aegis-pay[langchain]
 pip install aegis-pay[all]
 ```
 
-## 3. 快速上手 — OpenClaw / NemoClaw / Claude Code / OpenHands
+## 4. 快速上手 — OpenClaw / NemoClaw / Claude Code / OpenHands
 
 如果你使用 OpenClaw、NemoClaw、Claude Code、OpenHands 或任何支援 MCP 的 Agentic 框架，你可以在 2 分鐘內啟動 Aegis：
 
@@ -108,7 +165,6 @@ export AEGIS_MAX_PER_TX=100.0        # 單筆交易上限 $100
 export AEGIS_MAX_DAILY=500.0         # 每日總預算上限 $500
 export AEGIS_BLOCK_LOOPS=true        # 阻擋幻覺 / 重試迴圈
 # 可選：export AEGIS_STRIPE_KEY=sk_live_...（Stripe 設定請見 §8）
-# 可選：export AEGIS_UNMASK_CARDS=true      # 向 Agent 顯示完整卡號與 CVV（用於測試）
 ```
 
 ### 步驟四：開始使用
@@ -131,7 +187,7 @@ Agent：「讓我再試一次購買運算資源……上次又失敗了。」
 
 ---
 
-## 4. 核心元件
+## 5. 核心元件
 
 ### 🛡️ The Vault（金庫）
 基於 **Streamlit** 與 **SQLite** (`aegis_state.db`) 的本地視覺化控制台。The Vault 讓人類可以：
@@ -149,10 +205,10 @@ Aegis 提供兩種意圖評估模式，防止 Agent 浪費資金：
 1. **快速關鍵字攔截**（預設）：使用 `GuardrailEngine` 即時阻擋包含迴圈或幻覺相關關鍵字的請求（如「retry」、「failed again」、「ignore previous」）。零依賴、零成本。
 2. **LLM 語意護欄引擎**：由 `LLMGuardrailEngine` 驅動，對 Agent 的推理進行深度語意分析，檢測無關購買或邏輯不一致。支援**任何 OpenAI 相容端點** — 包括透過 Ollama/vLLM 的本地模型，或 OpenAI、OpenRouter 等雲端服務。
 
-## 5. 安全聲明
+## 6. 安全聲明
 安全性是 Aegis 的第一優先。SDK **預設遮罩卡號**（如 `****-****-****-4242`），在回傳授權結果給 Agent 時不會暴露完整卡號。這能防止敏感支付資訊洩漏到 Agent 的對話紀錄、模型上下文視窗或持久化日誌中，確保只有執行環境能處理原始憑證。
 
-## 6. The Vault Dashboard（監控面板）
+## 7. The Vault Dashboard（監控面板）
 
 The Vault 是你即時監控所有 Agent 支付活動的控制台。
 
@@ -182,7 +238,7 @@ uv run streamlit run dashboard/app.py
 
 ---
 
-## 7. Python SDK 快速入門
+## 8. Python SDK 快速入門
 
 只需幾行程式碼即可將 Aegis 整合到你的 Python 或 LangChain 工作流程：
 
@@ -237,7 +293,7 @@ tool = AegisPaymentTool(client=client, agent_id="agent-01")
 
 ---
 
-## 8. 支付供應商：Stripe vs Mock
+## 9. 支付供應商：Stripe vs Mock
 
 ### 不使用 Stripe（預設 — Mock Provider）
 

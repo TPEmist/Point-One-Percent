@@ -1,3 +1,5 @@
+[English](./INTEGRATION_GUIDE.md) | [繁體中文](./INTEGRATION_GUIDE.zh-TW.md)
+
 # Aegis Integration Guide
 
 > **For developers** who want to embed Aegis as the financial middleware in their agentic workflows.  
