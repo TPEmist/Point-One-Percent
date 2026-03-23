@@ -7,7 +7,19 @@ Project Aegis is a payment guardrail and one-time flow protocol specifically des
 ## 1. The Problem
 When Agentic AI encounters a paywall (e.g., domain registration, API credits, compute scaling) during an automated workflow, it is often forced to stop and wait for human intervention. However, providing a physical credit card directly to an agent introduces a "trust crisis": hallucinations or infinite loops could lead to the card being drained.
 
-## 2. Ecosystem Position: Aegis + Browser Agents = Unstoppable
+## 2. Dual Architecture (雙軌架構)
+
+Project Aegis is designed with a "Dual Architecture" vision to scale from open-source local experiments to enterprise-grade AI production pipelines.
+
+### 1. Hacker Edition (BYOC + DOM Injection)
+Built for open-source frameworks like OpenClaw and NemoClaw. The agent **never** receives the true credit card number—it only sees a masked version (\`****-4242\`). When the agent successfully navigates to a checkout paywall, the Aegis \`AegisBrowserInjector\` attaches to the active Chromium browser via the Chrome DevTools Protocol (CDP). It precisely traverses all cross-origin iframes (like Stripe Elements) and injects the real credentials deep into the DOM form elements, delivering **100% protection against prompt injection** or hallucination-driven extractions. Bring Your Own Card (BYOC) locally with absolute peace of mind.
+
+### 2. Enterprise Edition (Stripe Issuing)
+The "North Star" for the broader Agentic SaaS ecosystem. Proving that Aegis has the enterprise-grade extensibility required for the real world, it seamlessly connects to verified financial infrastructure. Perfect for platforms building "Agentic Visa" services that programmatically issue real, single-use, burner virtual credit cards (VCCs) via the Stripe API for cloud-hosted AI fleets.
+
+---
+
+## 3. Ecosystem Position: Aegis + Browser Agents = Unstoppable
 
 Modern agentic workflows require two complementary capabilities. Aegis does one, and does it exceptionally well.
 
@@ -64,7 +76,7 @@ The real power emerges when Aegis is paired with a browser automation agent (e.g
 
 ---
 
-## 3. Installation
+## 4. Installation
 
 ```bash
 # Core only (keyword guardrail + mock provider, zero external dependencies)
@@ -83,7 +95,7 @@ pip install aegis-pay[langchain]
 pip install aegis-pay[all]
 ```
 
-## 4. Quick Start for OpenClaw / NemoClaw / Claude Code / OpenHands
+## 5. Quick Start for OpenClaw / NemoClaw / Claude Code / OpenHands
 
 If you're using OpenClaw, NemoClaw, Claude Code, OpenHands, or any MCP-compatible agentic framework, you can get Aegis running in under 2 minutes:
 
@@ -187,7 +199,7 @@ Agent: "Let me retry buying compute... the previous attempt failed again."
 
 ---
 
-## 5. Core Components
+## 6. Core Components
 
 ### 🛡️ The Vault
 A local visualization console powered by **Streamlit** and **SQLite** (`aegis_state.db`). The Vault allows humans to:
@@ -205,10 +217,10 @@ Aegis provides two modes of intent evaluation to prevent agents from wasting fun
 1. **Fast Keyword-based Interception** (Default): Uses the `GuardrailEngine` to immediately block requests containing keywords associated with loops or hallucinations (e.g., "retry", "failed again", "ignore previous"). Zero dependencies, zero cost.
 2. **LLM-based Guardrail Engine**: Powered by the `LLMGuardrailEngine`, this mode performs deep semantic analysis of the agent's reasoning to detect unrelated purchases or logical inconsistencies. Supports **any OpenAI-compatible endpoint** — including local models via Ollama/vLLM, or cloud providers like OpenAI and OpenRouter.
 
-## 6. Security Statement
+## 7. Security Statement
 Security is a first-class citizen in Aegis. The SDK **masks card numbers by default** (e.g., `****-****-****-4242`) when returning authorization results to the agent. This prevents sensitive payment information from leaking into agent chat logs, model context windows, or persistent logs, ensuring that only the execution environment handles the raw credentials.
 
-## 7. The Vault Dashboard
+## 8. The Vault Dashboard
 
 The Vault is your real-time monitoring console for all agent payment activity. 
 
@@ -238,7 +250,7 @@ uv run streamlit run dashboard/app.py
 
 ---
 
-## 8. Python SDK Quickstart
+## 9. Python SDK Quickstart
 
 Integrate Aegis into your custom Python or LangChain workflows in just a few lines:
 
@@ -293,7 +305,7 @@ tool = AegisPaymentTool(client=client, agent_id="agent-01")
 
 ---
 
-## 9. Payment Providers: Stripe vs Mock
+## 10. Payment Providers: Stripe vs Mock
 
 ### Without Stripe (Default — Mock Provider)
 
