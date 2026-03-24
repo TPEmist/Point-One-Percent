@@ -182,6 +182,11 @@ export AEGIS_ALLOWED_CATEGORIES='["aws", "cloudflare", "openai", "github"]'
 export AEGIS_MAX_PER_TX=100.0        # Max $100 per single transaction
 export AEGIS_MAX_DAILY=500.0         # Max $500 per day total
 export AEGIS_BLOCK_LOOPS=true        # Block hallucination/retry loops
+# Optional: Enable LLM Guardrails (replaces default keyword setup)
+export AEGIS_GUARDRAIL_ENGINE=llm    # 'keyword' or 'llm'
+export AEGIS_LLM_API_KEY=sk-...      # required if using OpenAI
+# export AEGIS_LLM_BASE_URL=http://localhost:11434/v1  # For Ollama
+# export AEGIS_LLM_MODEL=llama3.2
 # Optional: export AEGIS_STRIPE_KEY=sk_live_... (see §8 for Stripe setup)
 ```
 

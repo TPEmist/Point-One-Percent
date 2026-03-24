@@ -182,6 +182,11 @@ export AEGIS_ALLOWED_CATEGORIES='["aws", "cloudflare", "openai", "github"]'
 export AEGIS_MAX_PER_TX=100.0        # 單筆交易上限 $100
 export AEGIS_MAX_DAILY=500.0         # 每日總預算上限 $500
 export AEGIS_BLOCK_LOOPS=true        # 阻擋幻覺 / 重試迴圈
+# 可選: 啟用 LLM 語意護欄引擎（取代預設的關鍵字引擎）
+export AEGIS_GUARDRAIL_ENGINE=llm    # 'keyword' 或 'llm'
+export AEGIS_LLM_API_KEY=sk-...      # OpenAI API Key，如使用雲端模型必須設定能
+# export AEGIS_LLM_BASE_URL=http://localhost:11434/v1  # 自訂端點，例如 Ollama
+# export AEGIS_LLM_MODEL=llama3.2    # 取代預設的 gpt-4o-mini
 # 可選：export AEGIS_STRIPE_KEY=sk_live_...（Stripe 設定請見 §8）
 ```
 

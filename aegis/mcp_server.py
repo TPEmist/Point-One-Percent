@@ -19,6 +19,10 @@ block_loops  = os.getenv("AEGIS_BLOCK_LOOPS", "true").lower() == "true"
 stripe_key   = os.getenv("AEGIS_STRIPE_KEY")
 cdp_url      = os.getenv("AEGIS_CDP_URL", "http://localhost:9222")
 auto_inject  = os.getenv("AEGIS_AUTO_INJECT", "false").lower() == "true"
+engine_type  = os.getenv("AEGIS_GUARDRAIL_ENGINE", "keyword").lower()
+llm_api_key  = os.getenv("AEGIS_LLM_API_KEY", "")
+llm_base_url = os.getenv("AEGIS_LLM_BASE_URL", None)
+llm_model    = os.getenv("AEGIS_LLM_MODEL", "gpt-4o-mini")
 
 policy = GuardrailPolicy(
     allowed_categories=allowed_categories,
@@ -32,7 +36,17 @@ if stripe_key:
 else:
     provider = MockStripeProvider()
 
-client = AegisClient(provider, policy)
+engine = None
+if engine_type == "llm":
+    from aegis.engine.llm_guardrails import LLMGuardrailEngine
+    engine = LLMGuardrailEngine(
+        api_key=llm_api_key,
+        base_url=llm_base_url,
+        model=llm_model,
+        use_json_mode=True
+    )
+
+client = AegisClient(provider, policy, engine=engine)
 
 # ---------------------------------------------------------------------------
 # Optional: browser injector (only loaded when AEGIS_AUTO_INJECT=true)

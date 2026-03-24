@@ -54,7 +54,9 @@ Or add to `~/.openclaw/mcp_servers.json`:
       "AEGIS_ALLOWED_CATEGORIES": "[\"aws\", \"cloudflare\", \"openai\", \"github\"]",
       "AEGIS_MAX_PER_TX": "100.0",
       "AEGIS_MAX_DAILY": "500.0",
-      "AEGIS_BLOCK_LOOPS": "true"
+      "AEGIS_BLOCK_LOOPS": "true",
+      "AEGIS_GUARDRAIL_ENGINE": "llm",
+      "AEGIS_LLM_API_KEY": "sk-your-openai-api-key"
     }
   }
 }
@@ -78,6 +80,8 @@ openclaw mcp add aegis -- uv run python -m aegis.mcp_server
 export AEGIS_ALLOWED_CATEGORIES='["aws", "openai"]'
 export AEGIS_MAX_PER_TX=50.0
 export AEGIS_MAX_DAILY=200.0
+export AEGIS_GUARDRAIL_ENGINE=llm
+export AEGIS_LLM_API_KEY=sk-your-openai-api-key
 ```
 
 > **NemoClaw tip:** The System Prompt fragment above is particularly critical in the NemoClaw context, since the agent has broader system-level permissions. Aegis becomes the last financial line of defense inside the sandbox.

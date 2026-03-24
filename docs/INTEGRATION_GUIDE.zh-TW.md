@@ -54,7 +54,9 @@ openclaw mcp add aegis -- uv run python -m aegis.mcp_server
       "AEGIS_ALLOWED_CATEGORIES": "[\"aws\", \"cloudflare\", \"openai\", \"github\"]",
       "AEGIS_MAX_PER_TX": "100.0",
       "AEGIS_MAX_DAILY": "500.0",
-      "AEGIS_BLOCK_LOOPS": "true"
+      "AEGIS_BLOCK_LOOPS": "true",
+      "AEGIS_GUARDRAIL_ENGINE": "llm",
+      "AEGIS_LLM_API_KEY": "sk-your-openai-api-key"
     }
   }
 }
@@ -78,6 +80,8 @@ openclaw mcp add aegis -- uv run python -m aegis.mcp_server
 export AEGIS_ALLOWED_CATEGORIES='["aws", "openai"]'
 export AEGIS_MAX_PER_TX=50.0
 export AEGIS_MAX_DAILY=200.0
+export AEGIS_GUARDRAIL_ENGINE=llm
+export AEGIS_LLM_API_KEY=sk-your-openai-api-key
 ```
 
 > **NemoClaw 提示：** 上方的 System Prompt 片段在 NemoClaw 情境中尤為關鍵，因為沙箱內的 Agent 擁有更廣泛的系統層級權限。Aegis 成為沙箱內的最後一道財務防線。
