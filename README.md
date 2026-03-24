@@ -1,5 +1,11 @@
 [English](./README.md) | [Chinese](./README.zh-TW.md)
 
+<p align="center">
+    <picture>
+        <img src="https://raw.githubusercontent.com/TPEmist/project-aegis/main/project_banner.png" alt="Project Aegis (AgentPay)" width="800">
+    </picture>
+</p>
+
 # Project Aegis (AgentPay)
 
 Project Aegis is a payment guardrail and one-time flow protocol specifically designed for Agentic AI (e.g., OpenClaw, NemoClaw, Claude Code, OpenHands). It enables agents to handle financial transactions safely without risking unlimited exposure of human-controlled credit cards.

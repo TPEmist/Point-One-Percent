@@ -17,3 +17,6 @@ skills/
 run_parallel.sh
 dist/
 build/
+.gemini/
+build_pypi_readme.py
+*_proof.png
