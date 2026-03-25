@@ -96,12 +96,21 @@ async def request_virtual_card(requested_amount: float, target_vendor: str, reas
     # Auto-injection path: if enabled, inject into the active browser tab
     # -------------------------------------------------------------------
     if injector is not None:
-        injection_ok = await injector.inject_payment_info(
+        injection_result = await injector.inject_payment_info(
             seal_id=seal.seal_id,
             cdp_url=cdp_url,
         )
 
-        if not injection_ok:
+        # inject_payment_info now returns a dict; support both dict and legacy bool
+        if isinstance(injection_result, dict):
+            card_filled    = injection_result.get("card_filled", False)
+            billing_filled = injection_result.get("billing_filled", False)
+        else:
+            # backwards-compatible fallback if a custom injector returns a bool
+            card_filled    = bool(injection_result)
+            billing_filled = False
+
+        if not card_filled:
             # Undo the seal — cancel the budget reservation
             client.state_tracker.mark_used(seal.seal_id)
             return (
@@ -110,8 +119,14 @@ async def request_virtual_card(requested_amount: float, target_vendor: str, reas
                 "to the FINAL checkout form and the card fields are visible, then retry."
             )
 
+        billing_note = (
+            " Billing fields (name, address, email) were also filled automatically."
+            if billing_filled
+            else ""
+        )
         return (
-            f"Payment approved and securely auto-injected into the browser form. "
+            f"Payment approved and securely auto-injected into the browser form."
+            f"{billing_note} "
             f"Please proceed to click the submit/pay button. "
             f"Masked card: {masked_card}"
         )

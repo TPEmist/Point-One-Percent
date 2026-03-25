@@ -25,6 +25,9 @@ dev = ["pytest", "pytest-asyncio"]
 browser = ["playwright>=1.40.0"]
 all = ["aegis-pay[llm,stripe,langchain,mcp,dashboard,browser]"]
 
+[project.scripts]
+aegis-launch = "aegis.cli:main"
+
 [tool.hatch.metadata.hooks.custom]
 path = "hatch_build.py"
 

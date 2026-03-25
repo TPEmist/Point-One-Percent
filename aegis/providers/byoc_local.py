@@ -12,8 +12,26 @@ class LocalVaultProvider(VirtualCardProvider):
         self.exp_year = os.getenv("AEGIS_BYOC_EXP_YEAR")
         self.cvv = os.getenv("AEGIS_BYOC_CVV")
 
+        # Billing fields are optional — empty string means "not configured"
+        self._billing_first_name = os.getenv("AEGIS_BILLING_FIRST_NAME", "").strip()
+        self._billing_last_name  = os.getenv("AEGIS_BILLING_LAST_NAME", "").strip()
+        self._billing_street     = os.getenv("AEGIS_BILLING_STREET", "").strip()
+        self._billing_zip        = os.getenv("AEGIS_BILLING_ZIP", "").strip()
+        self._billing_email      = os.getenv("AEGIS_BILLING_EMAIL", "").strip()
+
         if not all([self.card_number, self.exp_month, self.exp_year, self.cvv]):
             raise ValueError("Missing BYOC environment variables. Please check AEGIS_BYOC_NUMBER, AEGIS_BYOC_EXP_MONTH, AEGIS_BYOC_EXP_YEAR, AEGIS_BYOC_CVV in .env.")
+
+    @property
+    def billing_info(self) -> dict:
+        """Return billing details as a dict; empty-string values mean not configured."""
+        return {
+            "first_name": self._billing_first_name,
+            "last_name":  self._billing_last_name,
+            "street":     self._billing_street,
+            "zip":        self._billing_zip,
+            "email":      self._billing_email,
+        }
 
     async def issue_card(self, intent: PaymentIntent, policy: GuardrailPolicy) -> VirtualSeal:
         if intent.requested_amount > policy.max_amount_per_tx:
