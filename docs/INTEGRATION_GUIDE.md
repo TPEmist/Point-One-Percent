@@ -136,19 +136,28 @@ export AEGIS_LLM_MODEL=anthropic/claude-3-haiku
 
 ### Step 2 — Add Aegis MCP to Claude Code
 
+**Option A — Global (recommended):** available in every Claude Code session, regardless of working directory.
+
 ```bash
-claude mcp add aegis -- uv run --project /path/to/Project-Aegis python -m aegis.mcp_server
+claude mcp add --scope global aegis -- uv run --project /path/to/Project-Aegis python -m aegis.mcp_server
 ```
 
-> The `--project` flag tells `uv` which project directory to use, so the `.env` file and `aegis_state.db` are resolved relative to the correct location.
+**Option B — Project-level:** only available when Claude Code is started from the Project-Aegis directory.
+
+```bash
+cd /path/to/Project-Aegis
+claude mcp add aegis -- uv run --project . python -m aegis.mcp_server
+```
+
+> The `--project` flag tells `uv` which directory to use for the `.env` file and `aegis_state.db`. Use the global option if you want `request_virtual_card` available across all your Claude Code projects.
 
 ### Step 3 — Add Playwright MCP to Claude Code
 
 ```bash
-claude mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint http://localhost:9222
+claude mcp add --scope global playwright -- npx @playwright/mcp@latest --cdp-endpoint http://localhost:9222
 ```
 
-> This connects Playwright MCP to the **same Chrome instance** you launched in Step 0. Both MCPs now share one browser window.
+> This connects Playwright MCP to the **same Chrome instance** you launched in Step 0. Both MCPs now share one browser window. Use `--scope global` so it is available alongside Aegis in any session.
 
 ### Recommended System Prompt Addition
 

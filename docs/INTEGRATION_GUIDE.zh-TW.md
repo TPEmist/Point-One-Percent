@@ -136,19 +136,28 @@ export AEGIS_LLM_MODEL=anthropic/claude-3-haiku
 
 ### 步驟 2 — 將 Aegis MCP 加入 Claude Code
 
+**選項 A — 全域（推薦）：** 在任何工作目錄啟動 Claude Code 都能使用。
+
 ```bash
-claude mcp add aegis -- uv run --project /path/to/Project-Aegis python -m aegis.mcp_server
+claude mcp add --scope global aegis -- uv run --project /path/to/Project-Aegis python -m aegis.mcp_server
 ```
 
-> `--project` 旗標指定 `uv` 使用的專案目錄，確保 `.env` 檔案與 `aegis_state.db` 相對於正確的位置解析。
+**選項 B — 專案層級：** 僅在從 Project-Aegis 目錄啟動 Claude Code 時有效。
+
+```bash
+cd /path/to/Project-Aegis
+claude mcp add aegis -- uv run --project . python -m aegis.mcp_server
+```
+
+> `--project` 旗標指定 `uv` 使用的目錄，確保 `.env` 與 `aegis_state.db` 正確解析。若希望 `request_virtual_card` 在所有 Claude Code 專案中都能使用，請選擇全域選項。
 
 ### 步驟 3 — 將 Playwright MCP 加入 Claude Code
 
 ```bash
-claude mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint http://localhost:9222
+claude mcp add --scope global playwright -- npx @playwright/mcp@latest --cdp-endpoint http://localhost:9222
 ```
 
-> 這會將 Playwright MCP 連接到你在步驟 0 啟動的**同一個 Chrome 實例**。兩個 MCP 現在共用同一個瀏覽器視窗。
+> 這會將 Playwright MCP 連接到你在步驟 0 啟動的**同一個 Chrome 實例**。兩個 MCP 現在共用同一個瀏覽器視窗。使用 `--scope global` 確保 Playwright 與 Aegis 在任何 session 中都能一起使用。
 
 ### 建議加入的 System Prompt
 
