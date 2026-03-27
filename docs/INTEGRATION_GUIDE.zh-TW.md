@@ -474,9 +474,9 @@ class POPCheckoutInterceptor:
 
 ---
 
-## 4. OpenClaw / NemoClaw — System Prompt 設定
+## 4. OpenClaw / NemoClaw — 完整設定
 
-最重要的防護層在於 **System Prompt 層級**：明確指示 Agent 在執行任何支付動作之前，*必須*先呼叫 Point One Percent，而不是直接嘗試填入真實憑證。
+OpenClaw 與 NemoClaw 均原生支援 MCP，並使用 Chrome DevTools Protocol（CDP）進行瀏覽器自動化——與 §1 的 Claude Code 設定幾乎完全相同。
 
 ### 推薦的 System Prompt 片段
 
@@ -498,61 +498,128 @@ class POPCheckoutInterceptor:
 
 4. **如果你發現自己陷入迴圈**（對同一筆失敗交易重試超過一次），
    你必須停下來並請求人類介入，而非繼續嘗試。
-
-5. Point One Percent 回傳的卡號將是遮罩格式（如 `****-****-****-4242`）。
-   **不可嘗試查找或還原完整卡號。**
 ```
 
-### OpenClaw：註冊 Point One Percent 為 MCP 工具
+---
+
+### OpenClaw 設定
+
+OpenClaw 原生支援 MCP，並以與 Claude Code 相同的方式讀取 `.env` 檔案。設定流程與 §1 幾乎完全一致。
+
+**步驟 0 — 啟動帶有 CDP 的 Chrome**
+
+與 §1 相同，使用 `pop-launch`：
 
 ```bash
-openclaw mcp add pop -- uv run python -m pop_pay.mcp_server
+pop-launch --print-mcp
 ```
 
-或加入 `~/.openclaw/mcp_servers.json`：
+**步驟 1 — 設定 `.env`**
+
+與 §1 相同。OpenClaw 會從專案目錄、`~/.openclaw/.env` 或 `~/.openclaw/openclaw.json` 的 `env` 區塊讀取設定。複製範例並填入你的憑證：
+
+```bash
+cp .env.example .env
+```
+
+**步驟 2 — 註冊 Point One Percent MCP**
+
+```bash
+openclaw mcp add pop -- uv run --project /path/to/Point-One-Percent python -m pop_pay.mcp_server
+```
+
+或直接加入 `~/.openclaw/mcp_servers.json`：
 
 ```json
 {
   "pop": {
     "command": "uv",
-    "args": ["run", "python", "-m", "pop_pay.mcp_server"],
-    "cwd": "/path/to/Point-One-Percent",
-    "env": {
-      "POP_ALLOWED_CATEGORIES": "[\"aws\", \"cloudflare\", \"openai\", \"github\"]",
-      "POP_MAX_PER_TX": "100.0",
-      "POP_MAX_DAILY": "500.0",
-      "POP_BLOCK_LOOPS": "true",
-      "POP_GUARDRAIL_ENGINE": "llm",
-      "POP_LLM_API_KEY": "sk-your-openai-api-key"
-    }
+    "args": ["run", "--project", "/path/to/Point-One-Percent", "python", "-m", "pop_pay.mcp_server"]
   }
 }
 ```
 
-### NemoClaw（NVIDIA 安全沙箱）：特別注意事項
+**步驟 3 — 註冊帶有 CDP endpoint 的 Playwright MCP**
 
-NemoClaw 的 `OpenShell` 運行時限制寫入存取範圍，僅允許 `/sandbox/` 與 `/tmp/`。
+OpenClaw 透過 ClawHub 支援 Playwright MCP。加上 `--cdp-endpoint` 旗標，確保兩個 MCP 共用同一個 Chrome 實例：
 
 ```bash
-# 步驟一：在沙箱內複製 Point One Percent
+openclaw mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint http://localhost:9222
+```
+
+> 更新 `.env` 後，重啟 OpenClaw session 即可重新載入設定——不需要重新註冊 MCP。
+
+---
+
+### NemoClaw（NVIDIA OpenShell）設定
+
+NemoClaw 將 OpenClaw 包裝在 **OpenShell** 安全沙箱中。與 Claude Code / OpenClaw 的主要差異：
+
+1. **不使用 `.env` 檔案** — 憑證以「Providers」形式宣告在 YAML policy 檔中，並在執行時注入為環境變數。
+2. **預設零出口（zero-egress）** — POP MCP server 的端點必須明確加入網路白名單。
+3. **早期預覽** — 介面可能異動；請參閱 [NemoClaw 文件](https://docs.nvidia.com/nemoclaw/latest/) 取得最新資訊。
+
+**步驟 0 — 在沙箱外啟動帶有 CDP 的 Chrome**
+
+在連接沙箱前，先在 host 端執行 `pop-launch`：
+
+```bash
+pop-launch
+```
+
+**步驟 1 — 在沙箱內 clone 並安裝**
+
+```bash
 nemoclaw my-assistant connect
 cd /sandbox
 git clone https://github.com/TPEmist/Point-One-Percent.git
 cd Point-One-Percent && uv sync --all-extras
-
-# 步驟二：連接沙箱後，在內部註冊 MCP server
-openclaw mcp add pop -- uv run python -m pop_pay.mcp_server
-
-# 步驟三：設定環境變數（pop_state.db 將寫入 /sandbox/Point-One-Percent/）
-export POP_ALLOWED_CATEGORIES='["aws", "openai"]'
-export POP_MAX_PER_TX=50.0
-export POP_MAX_DAILY=200.0
-# 護欄模式："keyword"（預設）或 "llm" — 設定選項請見 §1「護欄模式設定」
-export POP_GUARDRAIL_ENGINE=llm
-export POP_LLM_API_KEY=sk-your-openai-api-key
 ```
 
-> **NemoClaw 提示：** 上方的 System Prompt 片段在 NemoClaw 情境中尤為關鍵，因為沙箱內的 Agent 擁有更廣泛的系統層級權限。Point One Percent 成為沙箱內的最後一道財務防線。
+**步驟 2 — 在 policy YAML 中以 Providers 宣告 POP 憑證**
+
+在 `nemoclaw-blueprint/policies/openclaw-sandbox.yaml` 的 `providers` 區塊中加入：
+
+```yaml
+providers:
+  - name: POP_BYOC_NUMBER
+    value: "4111111111111111"
+  - name: POP_BYOC_CVV
+    value: "123"
+  - name: POP_BYOC_EXP_MONTH
+    value: "12"
+  - name: POP_BYOC_EXP_YEAR
+    value: "27"
+  - name: POP_ALLOWED_CATEGORIES
+    value: '["aws", "openai", "donation"]'
+  - name: POP_MAX_PER_TX
+    value: "100.0"
+  - name: POP_MAX_DAILY
+    value: "500.0"
+  - name: POP_BLOCK_LOOPS
+    value: "true"
+```
+
+**步驟 3 — 在網路 policy 中將 POP MCP server 加入白名單**
+
+```yaml
+network:
+  egress:
+    allow:
+      - host: localhost
+        port: 9222   # Chrome CDP
+      - host: localhost
+        port: 8000   # POP MCP server（如有調整請修改）
+```
+
+**步驟 4 — 在沙箱內註冊 MCP**
+
+```bash
+openclaw mcp add pop -- uv run python -m pop_pay.mcp_server
+openclaw mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint http://localhost:9222
+```
+
+> **NemoClaw 提示：** Point One Percent 的護欄在 NemoClaw 中特別有價值——零出口沙箱可防止大多數意外消費，而 POP 更在此之上提供語意 policy 執行與完整審計紀錄，這是 OpenShell 本身無法做到的。
 
 ### 第一次實測
 
@@ -574,7 +641,7 @@ Agent 設定完上方的 System Prompt 後，試著交派這個任務：
 - [§1 Claude Code](#1-claude-code--使用-cdp-注入的完整設定) — 完整 BYOC + CDP 注入設定（最常見）
 - [§2 Python SDK / gemini-cli](#2-gemini-cli--python-腳本整合) — 直接嵌入 SDK 與 LangChain 工具模式
 - [§3 瀏覽器 Agent](#3-瀏覽器-agent-中間層playwright--browser-use--skyvern) — Playwright / browser-use / Skyvern 整合
-- [§4 OpenClaw / NemoClaw](#4-openclaw--nemoclaw--system-prompt-設定) — OpenClaw 與 NemoClaw 的 System Prompt 設定
+- [§4 OpenClaw / NemoClaw](#4-openclaw--nemoclaw--完整設定) — OpenClaw 與 NemoClaw 的完整 MCP + CDP 設定
 - [examples/agent_vault_flow.py](../examples/agent_vault_flow.py) — 完整 Playwright 瀏覽器注入範例
 - [examples/e2e_demo.py](../examples/e2e_demo.py) — 純 SDK 端對端展示（無瀏覽器）
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — 如何新增支付供應商或護欄引擎
