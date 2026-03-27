@@ -570,7 +570,7 @@ Agent 設定完上方的 System Prompt 後，試著交派這個任務：
 
 ## 延伸閱讀
 
-- [README.zh-TW.md](../README.zh-TW.md) — 主要概述與快速上手（繁體中文版）
+- [README.zh-TW.md](../README.zh-TW.md) — 主要概述與快速上手（中文版）
 - [§1 Claude Code](#1-claude-code--使用-cdp-注入的完整設定) — 完整 BYOC + CDP 注入設定（最常見）
 - [§2 Python SDK / gemini-cli](#2-gemini-cli--python-腳本整合) — 直接嵌入 SDK 與 LangChain 工具模式
 - [§3 瀏覽器 Agent](#3-瀏覽器-agent-中間層playwright--browser-use--skyvern) — Playwright / browser-use / Skyvern 整合

@@ -15,7 +15,7 @@ for i, line in enumerate(lines):
     
     # Insert the redirect link after the # title
     if line.startswith("# Point One Percent"):
-        out_lines.append("\n> **Note**: This is the PyPI published documentation. For the full architecture diagrams, real UI screenshots, and the **Chinese translation (繁體中文版)**, please visit the [GitHub Repository](https://github.com/TPEmist/Point-One-Percent).\n")
+        out_lines.append("\n> **Note**: This is the PyPI published documentation. For the full architecture diagrams, real UI screenshots, and the **Chinese translation**, please visit the [GitHub Repository](https://github.com/TPEmist/Point-One-Percent).\n")
 
 with open("README.pypi.md", "w", encoding="utf-8") as f:
     f.writelines(out_lines)
