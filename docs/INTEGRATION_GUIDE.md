@@ -180,7 +180,7 @@ Payment rules:
 
 Once both MCPs are connected, paste this into a new Claude Code conversation:
 
-> Please donate $10 to Wikipedia at https://donate.wikimedia.org. Select **credit card** as the payment method. Use the pop MCP tool to request a virtual card. Fill in the payment details, but **do not submit** — I will review and confirm before proceeding.
+> Donate $10 to Wikipedia, with credit card, pay with pop-pay. Fill in the payment details, but **do not submit** — I will review and confirm before proceeding.
 
 > **Note:** The `"do not submit"` instruction is for initial testing only. Once you have verified the injection flow works correctly, remove it from your prompt to enable fully autonomous payments within your configured policy limits.
 
@@ -619,7 +619,7 @@ openclaw mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint http://
 
 Once your agent is configured with the system prompt above, try this task:
 
-> Please donate $10 to Wikipedia at https://donate.wikimedia.org. Select **credit card** as the payment method. Use the pop MCP tool to request a virtual card. Fill in the payment details, but **do not submit** — I will review and confirm before proceeding.
+> Donate $10 to Wikipedia, with credit card, pay with pop-pay. Fill in the payment details, but **do not submit** — I will review and confirm before proceeding.
 
 > **Note:** The `"do not submit"` instruction is for initial testing only. Once you have verified the injection flow works correctly, remove it from your prompt to enable fully autonomous payments within your configured policy limits.
 

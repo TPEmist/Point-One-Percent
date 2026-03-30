@@ -1,14 +1,22 @@
+import re
 from pop_pay.core.models import PaymentIntent, GuardrailPolicy
+
+
+def _tokenize(s: str) -> set:
+    return set(re.split(r'[\s\-_./]+', s.lower()))
+
 
 class GuardrailEngine:
     async def evaluate_intent(self, intent: PaymentIntent, policy: GuardrailPolicy) -> tuple[bool, str]:
         # Rule 1: Vendor/Category check
         vendor_lower = intent.target_vendor.lower()
+        vendor_tokens = _tokenize(intent.target_vendor)
         vendor_allowed = False
-        
+
         for category in policy.allowed_categories:
             cat_lower = category.lower()
-            if vendor_lower in cat_lower or cat_lower in vendor_lower:
+            cat_tokens = _tokenize(category)
+            if vendor_tokens & cat_tokens or vendor_lower == cat_lower:
                 vendor_allowed = True
                 break
                 

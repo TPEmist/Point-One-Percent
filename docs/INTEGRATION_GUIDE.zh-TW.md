@@ -68,11 +68,7 @@ alias chrome-cdp='google-chrome --remote-debugging-port=9222 --user-data-dir=/tm
 
 ### 步驟 1 — 設定 `.env`
 
-從範例檔複製並填入你的憑證：
-
-```bash
-Create ~/pop-pay/.env with your credentials
-```
+建立 `~/pop-pay/.env` 並填入你的憑證：
 
 編輯 `.env`，至少設定以下項目：
 
@@ -171,7 +167,7 @@ Payment rules:
 
 **一次性設定**（clone 後由人工執行一次）：
 
-1. `Create ~/pop-pay/.env with your credentials` → 填入卡片資訊與政策設定
+1. 建立 `~/pop-pay/.env` → 填入卡片資訊與政策設定
 2. `pop-launch --print-mcp` → 執行它印出的兩條 `claude mcp add` 指令
 
 **每次工作階段**（若加入上方 System Prompt，Agent 會自動處理）：
@@ -516,11 +512,7 @@ pop-launch --print-mcp
 
 **步驟 1 — 設定 `.env`**
 
-與 §1 相同。OpenClaw 會從專案目錄、`~/.openclaw/.env` 或 `~/.openclaw/openclaw.json` 的 `env` 區塊讀取設定。複製範例並填入你的憑證：
-
-```bash
-Create ~/pop-pay/.env with your credentials
-```
+與 §1 相同。OpenClaw 會從專案目錄、`~/.openclaw/.env` 或 `~/.openclaw/openclaw.json` 的 `env` 區塊讀取設定。建立 `~/pop-pay/.env` 並填入你的憑證。
 
 **步驟 2 — 註冊 Point One Percent MCP**
 

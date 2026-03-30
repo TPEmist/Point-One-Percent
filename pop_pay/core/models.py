@@ -10,8 +10,8 @@ class GuardrailPolicy(BaseModel):
 class PaymentIntent(BaseModel):
     agent_id: str = Field(..., description="ID of the AI agent requesting payment")
     requested_amount: float = Field(..., gt=0, description="Amount requested")
-    target_vendor: str = Field(..., description="Vendor to pay")
-    reasoning: str = Field(..., description="Agent reasoning for the payment")
+    target_vendor: str = Field(..., max_length=200, description="Vendor to pay")
+    reasoning: str = Field(..., max_length=2000, description="Agent reasoning for the payment")
 
 class VirtualSeal(BaseModel):
     seal_id: str = Field(..., description="Unique ID for the virtual seal")

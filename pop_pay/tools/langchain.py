@@ -74,7 +74,13 @@ class PopPaymentTool(BaseTool):
         if seal.status.lower() == "rejected":
             return f"Payment rejected by guardrails. Reason: {seal.rejection_reason}"
 
-        masked_card = f"****-****-****-{seal.card_number[-4:]}"
+        if seal.card_number:
+            if seal.card_number.startswith("****"):
+                masked_card = seal.card_number  # Already masked (Stripe Issuing)
+            else:
+                masked_card = f"****-****-****-{seal.card_number[-4:]}"
+        else:
+            masked_card = "****-****-****-????"
 
         # -------------------------------------------------------------------
         # Auto-injection path: if an injector is provided, fill the browser
