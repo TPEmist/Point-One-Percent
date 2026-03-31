@@ -84,7 +84,7 @@ The real power emerges when Point One Percent is paired with a browser automatio
 | **MCP Tool** | Claude Code, OpenClaw, NemoClaw, OpenHands, any MCP-compatible host |
 | **Python SDK** | Custom Playwright, browser-use, Skyvern, Selenium, gemini-cli |
 
-> **Claude Code** gets full CDP injection — card is auto-filled into the browser form, the agent never sees the raw number. See the **[Integration Guide](./docs/INTEGRATION_GUIDE.md)** for setup instructions and System Prompt templates.
+> **Any browser-capable agent** (Claude Code, OpenClaw, browser-use, Skyvern, etc.) gets full CDP injection — card is auto-filled into the payment form, the agent only ever sees the masked confirmation (`****-****-****-4242`). See the **[Integration Guide](./docs/INTEGRATION_GUIDE.md)** for setup instructions and System Prompt templates.
 
 ---
 
