@@ -107,7 +107,9 @@ def _derive_key(salt: bytes = None) -> bytes:
     except Exception:
         username = b"unknown"
     password = machine_id + b":" + username
-    return hashlib.scrypt(password, salt=salt, n=2**17, r=8, p=1, dklen=32)
+    # n=2**14 (16MB) — well within OpenSSL default maxmem (32MB).
+    # Higher n is bounded by machine_id:username entropy (~40-50 bits), not KDF cost.
+    return hashlib.scrypt(password, salt=salt, n=2**14, r=8, p=1, dklen=32)
 
 
 def encrypt_credentials(creds: dict, salt: bytes = None) -> bytes:
@@ -160,7 +162,8 @@ def save_vault(creds: dict):
     tmp_path = VAULT_PATH.with_suffix(".enc.tmp")
     tmp_path.write_bytes(blob)
     tmp_path.chmod(0o600)
-    os.fsync(tmp_path.open("rb").fileno())
+    with tmp_path.open("rb") as _f:
+        os.fsync(_f.fileno())
     tmp_path.rename(VAULT_PATH)
     VAULT_PATH.chmod(0o600)
     VAULT_DIR.chmod(0o700)
