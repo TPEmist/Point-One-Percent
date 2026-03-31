@@ -32,12 +32,20 @@ class CustomBuildHook(BuildHookInterface):
 
         # Compile the Cython extension
         try:
-            subprocess.run(
+            result = subprocess.run(
                 [sys.executable, "setup_cython.py", "build_ext", "--inplace"],
-                check=True
+                capture_output=True, text=True,
             )
-        except subprocess.CalledProcessError as e:
-            print(f"Warning: Cython compilation failed: {e}. Falling back to pure Python.")
+            if result.returncode != 0:
+                print("Cython compilation stdout:")
+                print(result.stdout[-3000:] if result.stdout else "(none)")
+                print("Cython compilation stderr:")
+                print(result.stderr[-3000:] if result.stderr else "(none)")
+                raise RuntimeError(f"setup_cython.py exited with code {result.returncode}")
+            print("Cython compilation succeeded.")
+            print(result.stdout[-1000:] if result.stdout else "")
+        except Exception as e:
+            print(f"ERROR: Cython compilation failed: {e}. Falling back to pure Python.")
         finally:
             if compiled_salt:
                 # Restore original .pyx (don't commit the secret)
