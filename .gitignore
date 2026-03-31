@@ -30,6 +30,7 @@ scripts/demo_guardrail.py
 # Cython build artifacts
 *.so
 *.pyd
+pop_pay/engine/_vault_core.c
 pop_pay/engine/_vault_core.cpython-*.so
 pop_pay/engine/_vault_core.cpython-*.pyd
 build/

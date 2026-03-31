@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pop-pay"
-version = "0.5.9"
+version = "0.6.0"
 description = "Point One Percent - Semantic Payment Guardrail for AI Agents. it only takes 0.1% of Hallucination to drain 100% of your wallet."
 authors = [{name="Point One Percent Team"}]
 dynamic = ["readme"]
@@ -38,6 +38,7 @@ path = "hatch_build.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pop_pay"]
+artifacts = ["pop_pay/**/*.so", "pop_pay/**/*.pyd"]
 
 [tool.hatch.build.hooks.custom]
 path = "build_ext.py"
@@ -51,5 +52,7 @@ path = "build_ext.py"
 
 [dependency-groups]
 dev = [
+    "cython>=3.2.4",
+    "setuptools>=82.0.1",
     "vulture>=2.15",
 ]
