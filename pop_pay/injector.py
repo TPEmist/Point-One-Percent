@@ -215,15 +215,37 @@ class PopBrowserInjector:
         result = {"card_filled": False, "billing_filled": False, "blocked_reason": ""}
 
         # TOCTOU guard: verify the current page domain matches the approved vendor
+        # Uses KNOWN_VENDOR_DOMAINS suffix matching (same as guardrail layer 1) to
+        # prevent subdomain-spoofing bypasses like "wikipedia.attacker.com".
         if page_url and approved_vendor:
             from urllib.parse import urlparse
             import re
+            from pop_pay.engine.guardrails import KNOWN_VENDOR_DOMAINS
             actual_domain = urlparse(page_url).netloc.lower().removeprefix("www.")
-            # Check if approved_vendor tokens appear in the actual domain
-            # Use the same token-based matching as guardrails.py _tokenize()
-            vendor_tokens = set(re.split(r'[\s\-_./]+', approved_vendor.lower())) - {''}
-            domain_tokens = set(re.split(r'[\s\-_./]+', actual_domain)) - {''}
-            if not vendor_tokens.intersection(domain_tokens):
+            vendor_lower = approved_vendor.lower()
+            vendor_tokens = set(re.split(r'[\s\-_./]+', vendor_lower)) - {''}
+
+            domain_ok = False
+            vendor_is_known = False
+            # First: check against KNOWN_VENDOR_DOMAINS using strict suffix matching.
+            # A known vendor MUST match a registered known domain — the fallback is
+            # skipped, so "wikipedia.attacker.com" never satisfies vendor="wikipedia".
+            for known_vendor, known_domains in KNOWN_VENDOR_DOMAINS.items():
+                if known_vendor in vendor_tokens or known_vendor == vendor_lower:
+                    vendor_is_known = True
+                    if any(actual_domain == d or actual_domain.endswith("." + d)
+                           for d in known_domains):
+                        domain_ok = True
+                    break
+            # Fallback ONLY for vendors absent from KNOWN_VENDOR_DOMAINS.
+            # Checks vendor token against complete domain labels (split on "." only,
+            # not hyphens) to prevent "not-github.io" matching vendor "github".
+            if not domain_ok and not vendor_is_known:
+                _common_tlds = {'com', 'org', 'net', 'io', 'co', 'uk', 'jp', 'de', 'fr'}
+                domain_labels = set(actual_domain.split(".")) - _common_tlds
+                domain_ok = bool(vendor_tokens.intersection(domain_labels))
+
+            if not domain_ok:
                 logger.warning(
                     "PopBrowserInjector: TOCTOU domain mismatch — "
                     "approved vendor '%s' does not match current page domain '%s'. "
