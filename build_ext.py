@@ -1,12 +1,15 @@
 """
 Hatchling build hook for compiling Cython extensions.
 
-The _COMPILED_SALT in _vault_core.pyx is replaced at build time by the
-POP_VAULT_COMPILED_SALT environment variable (set as a GitHub Actions secret).
-If the env var is not set, the .so is built with _COMPILED_SALT = None
-(falls back to the public OSS salt at runtime).
+The salt is injected as two XOR-paired integer lists (_SALT_XOR, _SALT_MASK)
+so no plaintext salt byte string appears in the compiled .so binary.
+`strings` scanning cannot reconstruct the salt from either list alone.
+
+If POP_VAULT_COMPILED_SALT is not set, both lists remain None and vault.py
+falls back to the public OSS salt at runtime.
 """
 import os
+import secrets
 import subprocess
 import sys
 from pathlib import Path
@@ -16,7 +19,7 @@ from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
 class CustomBuildHook(BuildHookInterface):
     def initialize(self, version, build_data):
-        compiled_salt = os.environ.get("POP_VAULT_COMPILED_SALT", "")
+        compiled_salt = os.environ.get("POP_VAULT_COMPILED_SALT", "").encode()
         pyx_path = Path("pop_pay/engine/_vault_core.pyx")
         if not pyx_path.exists():
             return
@@ -26,11 +29,20 @@ class CustomBuildHook(BuildHookInterface):
         build_data['infer_tag'] = True
 
         if compiled_salt:
-            # Inject the secret salt into the .pyx before compiling
+            # Split salt into XOR pair — neither part alone reveals the salt.
+            # Stored as int lists so no contiguous byte string appears in binary.
+            mask = secrets.token_bytes(len(compiled_salt))
+            xor_data = bytes(a ^ b for a, b in zip(compiled_salt, mask))
+            xor_list  = list(xor_data)   # salt XOR mask
+            mask_list = list(mask)        # random mask
+
             source = pyx_path.read_text()
             patched = source.replace(
-                '_COMPILED_SALT = None  # Replaced by CI: b"<SECRET_INJECTED_AT_BUILD_TIME>"',
-                f'_COMPILED_SALT = {repr(compiled_salt.encode())}'
+                "_SALT_XOR  = None  # Replaced by CI",
+                f"_SALT_XOR  = {xor_list}  # CI-injected"
+            ).replace(
+                "_SALT_MASK = None  # Replaced by CI",
+                f"_SALT_MASK = {mask_list}  # CI-injected"
             )
             pyx_path.write_text(patched)
 
@@ -52,5 +64,5 @@ class CustomBuildHook(BuildHookInterface):
             print(f"ERROR: Cython compilation failed: {e}. Falling back to pure Python.")
         finally:
             if compiled_salt:
-                # Restore original .pyx (don't commit the secret)
+                # Restore original .pyx (don't commit secrets)
                 pyx_path.write_text(source)
