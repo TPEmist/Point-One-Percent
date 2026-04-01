@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.11] - 2026-04-01
+
+### Changed
+- **Refactor:** Moved `KNOWN_PAYMENT_PROCESSORS` out of `guardrails.py` into its own
+  `pop_pay/engine/known_processors.py` module. `guardrails.py` re-exports it for
+  backwards compatibility. The list is now `frozenset` (immutable at runtime).
+  PR diffs for new processor additions are now isolated to a single focused file.
+
 ## [0.6.10] - 2026-04-01
 
 ### Added
