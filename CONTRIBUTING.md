@@ -58,6 +58,7 @@ We use `uv` for lightning-fast Python package management.
    # Edit ~/.config/pop-pay/.env — set allowed vendors, spending limits, CDP URL, etc.
    # Do NOT add card credentials here; they live in the vault.
    ```
+   See [docs/CATEGORIES_COOKBOOK.md](./docs/CATEGORIES_COOKBOOK.md) for guidance on configuring `POP_ALLOWED_CATEGORIES`.
 
 ### Running Tests
 We use `pytest` for our test suite. To run all tests:

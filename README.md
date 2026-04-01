@@ -193,7 +193,7 @@ Edit `~/.config/pop-pay/.env` (see Step 1b). Key variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `POP_ALLOWED_CATEGORIES` | `["aws","cloudflare"]` | Vendors the agent is allowed to pay |
+| `POP_ALLOWED_CATEGORIES` | `["aws","cloudflare"]` | Vendors the agent is allowed to pay — see [Categories Cookbook](./docs/CATEGORIES_COOKBOOK.md) |
 | `POP_MAX_PER_TX` | `100.0` | Max $ per transaction |
 | `POP_MAX_DAILY` | `500.0` | Max $ per day |
 | `POP_BLOCK_LOOPS` | `true` | Block hallucination/retry loops |

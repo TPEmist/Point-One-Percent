@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] - 2026-04-01
+
+### Added
+- **docs/CATEGORIES_COOKBOOK.md:** Explains how `POP_ALLOWED_CATEGORIES` matching works (two-layer: policy gate + TOCTOU domain guard), why semantic labels like `"Event"` do not match arbitrary vendor names, two configuration patterns (specific named vendors vs broad categories), real-world config examples, known limitations, and a quick diagnostic guide.
+
+### Changed
+- **README:** Linked Categories Cookbook from `POP_ALLOWED_CATEGORIES` env var description.
+- **CONTRIBUTING:** Linked Categories Cookbook from local dev setup step 4.
+
 ## [0.6.8] - 2026-04-01
 
 ### Fixed
