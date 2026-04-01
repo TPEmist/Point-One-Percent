@@ -1,0 +1,15 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/v1/server.json",
+  "name": "Point One Percent — AI Agent Payment Guardrail",
+  "description": "Local MCP server and semantic payment guardrail for agentic workflows. Intercepts agent payment intent, evaluates reasoning against policy (keyword or LLM engine), and injects card credentials directly into browser forms via CDP — the raw card number never enters the agent's context window.",
+  "license": "MIT",
+  "homepage": "https://github.com/TPEmist/Point-One-Percent",
+  "tools": [
+    {
+      "name": "request_virtual_card",
+      "description": "Request authorization to make a payment. Evaluates agent intent against spending policy and guardrail rules. Returns a masked card confirmation if approved, or a rejection reason if blocked."
+    }
+  ],
+  "categories": ["finance", "security", "payments"],
+  "keywords": ["payment", "guardrail", "agentic", "mcp", "security", "cdp", "browser-automation"]
+}
