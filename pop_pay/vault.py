@@ -222,16 +222,40 @@ def vault_exists() -> bool:
 
 
 def load_vault() -> dict:
-    """Load and decrypt vault. Tries passphrase key from keyring first, then machine key."""
+    """Load and decrypt vault. Tries passphrase key from keyring first, then machine key.
+
+    If POP_STRICT_MODE=1 is set, refuses to fall back to the public OSS salt.
+    This prevents downgrade attacks where an attacker deletes the Cython .so
+    to force re-initialization with the weaker OSS key.
+    """
+    import os
+    strict_mode = os.environ.get("POP_STRICT_MODE", "").strip() == "1"
+
     blob = VAULT_PATH.read_bytes()
-    # Try passphrase-derived key from keyring first (stronger protection)
+    # Try passphrase-derived key from keyring first (strongest protection)
     passphrase_key = load_key_from_keyring()
     if passphrase_key is not None:
         try:
             return decrypt_credentials(blob, key_override=passphrase_key)
         except ValueError:
-            pass  # Wrong key — fall through to machine-derived key
-    # Fall back to machine-derived key
+            pass  # Wrong key — fall through
+
+    # Check strict mode before attempting machine-derived key
+    if strict_mode:
+        try:
+            from pop_pay.engine import _vault_core
+            if not _vault_core.is_hardened():
+                raise RuntimeError(
+                    "POP_STRICT_MODE=1: Cython hardened build not available. "
+                    "Refusing to decrypt with public OSS salt. "
+                    "Reinstall via PyPI or disable strict mode."
+                )
+        except ImportError:
+            raise RuntimeError(
+                "POP_STRICT_MODE=1: _vault_core module not found. "
+                "Refusing to decrypt with public OSS salt."
+            )
+
     return decrypt_credentials(blob)
 
 

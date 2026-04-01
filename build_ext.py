@@ -38,11 +38,11 @@ class CustomBuildHook(BuildHookInterface):
 
             source = pyx_path.read_text()
             patched = source.replace(
-                "_SALT_XOR  = None  # Replaced by CI",
-                f"_SALT_XOR  = {xor_list}  # CI-injected"
+                "_A1 = None  # Replaced by CI",
+                f"_A1 = {xor_list}  # CI-injected"
             ).replace(
-                "_SALT_MASK = None  # Replaced by CI",
-                f"_SALT_MASK = {mask_list}  # CI-injected"
+                "_B2 = None  # Replaced by CI",
+                f"_B2 = {mask_list}  # CI-injected"
             )
             pyx_path.write_text(patched)
 
