@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8] - 2026-04-01
+
+### Fixed
+- **Vendor matching — domain fallback:** When agent passes a domain as `target_vendor` (e.g. `"bayarea.makerfaire.com"`), allowed categories are now also matched against `page_url` domain tokens. Handles cases where agent extracts vendor from URL instead of page content.
+- **Tool descriptions:** `target_vendor` parameter now explicitly states to pass a human-readable name (e.g. `"Maker Faire"`), not a URL or domain.
+
 ## [0.6.7] - 2026-04-01
 
 ### Fixed
