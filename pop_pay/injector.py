@@ -256,12 +256,21 @@ class PopBrowserInjector:
                         domain_ok = True
                     break
             # Fallback ONLY for vendors absent from KNOWN_VENDOR_DOMAINS.
-            # Checks vendor token against complete domain labels (split on "." only,
-            # not hyphens) to prevent "not-github.io" matching vendor "github".
+            # Checks vendor tokens against domain labels (split on "." only, not hyphens).
+            # Also checks if any vendor token is a substring of a compound domain label
+            # (e.g. "maker" inside "makerfaire.com") to handle concatenated brand names.
             if not domain_ok and not vendor_is_known:
                 _common_tlds = {'com', 'org', 'net', 'io', 'co', 'uk', 'jp', 'de', 'fr'}
                 domain_labels = set(actual_domain.split(".")) - _common_tlds
-                domain_ok = bool(vendor_tokens.intersection(domain_labels))
+                domain_ok = (
+                    bool(vendor_tokens.intersection(domain_labels))  # exact label match
+                    or any(                                           # token inside compound label
+                        tok in label
+                        for tok in vendor_tokens
+                        for label in domain_labels
+                        if len(tok) >= 4  # ignore short tokens ("of", "the", "bay", etc.)
+                    )
+                )
 
             if not domain_ok:
                 logger.warning(
@@ -593,7 +602,15 @@ class PopBrowserInjector:
             if not domain_ok and not vendor_is_known:
                 _common_tlds = {'com', 'org', 'net', 'io', 'co', 'uk', 'jp', 'de', 'fr'}
                 domain_labels = set(actual_domain.split(".")) - _common_tlds
-                domain_ok = bool(vendor_tokens.intersection(domain_labels))
+                domain_ok = (
+                    bool(vendor_tokens.intersection(domain_labels))
+                    or any(
+                        tok in label
+                        for tok in vendor_tokens
+                        for label in domain_labels
+                        if len(tok) >= 4
+                    )
+                )
 
             if not domain_ok:
                 logger.warning(
