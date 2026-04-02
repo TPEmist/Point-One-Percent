@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.13] - 2026-04-01
 
 ### Added
-- **Phone country code dropdown support:** `PHONE_COUNTRY_CODE_SELECTORS` (13 selectors). Built-in `_parse_e164()` automatically splits `POP_BILLING_PHONE` (E.164) into country code and national number — no extra env vars needed. Country code dropdown is filled with the numeric prefix (e.g. `+1`); `_select_option()` fuzzy-matches against option text like `"+1 United States"`. If a dropdown was found, the number input receives only the national number; otherwise the full E.164 is used. Covers 180+ country codes with zero external dependencies.
+- **Phone country code dropdown support:** `PHONE_COUNTRY_CODE_SELECTORS` (13 selectors covering `select[name='dialCode']`, `select[name='countryCode']`, etc.). `POP_BILLING_PHONE_COUNTRY_CODE` (ISO code or dial prefix: `"US"`, `"+1"`, etc.) fills the country code select; national number is **auto-derived** from the E.164 `POP_BILLING_PHONE` value via a 50-country dial code table — no separate `POP_BILLING_PHONE_NATIONAL` needed. Falls back to full E.164 for combined inputs or unknown country codes.
 
 ## [0.6.12] - 2026-04-01
 
