@@ -108,9 +108,16 @@ POP_CDP_URL=http://localhost:9222
 # POP_BILLING_FIRST_NAME=Jane
 # POP_BILLING_LAST_NAME=Doe
 # POP_BILLING_EMAIL=jane@example.com
-# POP_BILLING_PHONE=+14155551234   # E.164 format (country code + number)
+# POP_BILLING_PHONE=+14155551234        # E.164 format
+# POP_BILLING_PHONE_COUNTRY_CODE=US     # Optional: fills country code dropdown; national number auto-derived
 # POP_BILLING_STREET=123 Main St
-# POP_BILLING_ZIP=10001
+# POP_BILLING_CITY=San Francisco
+# POP_BILLING_STATE=CA                  # Full name or abbreviation, matched fuzzily
+# POP_BILLING_COUNTRY=US                # ISO code or full name, matched fuzzily
+# POP_BILLING_ZIP=94105
+
+# ── Extra payment processors to trust (built-in list covers Stripe, Zoho, Square, etc.) ──
+# POP_ALLOWED_PAYMENT_PROCESSORS=["checkout.myprocessor.com"]
 
 # ── Custom block keywords (extends built-in list) ──
 # POP_EXTRA_BLOCK_KEYWORDS=

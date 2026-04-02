@@ -199,6 +199,12 @@ Edit `~/.config/pop-pay/.env` (see Step 1b). Key variables:
 | `POP_BLOCK_LOOPS` | `true` | Block hallucination/retry loops |
 | `POP_AUTO_INJECT` | `false` | Enable CDP card injection |
 | `POP_GUARDRAIL_ENGINE` | `keyword` | Guardrail engine: `keyword` (zero-cost, default) or `llm` (semantic, two-layer) — see [Guardrail Mode](#guardrail-mode-keyword-vs-llm) |
+| `POP_BILLING_FIRST_NAME` / `POP_BILLING_LAST_NAME` | _(empty)_ | Auto-fill name fields on checkout pages |
+| `POP_BILLING_EMAIL` | _(empty)_ | Auto-fill email |
+| `POP_BILLING_PHONE` | _(empty)_ | E.164 format — auto-fill combined phone input |
+| `POP_BILLING_PHONE_COUNTRY_CODE` | _(empty)_ | ISO code (`"US"`) or dial prefix (`"+1"`) — fills country code dropdown; national number auto-derived |
+| `POP_BILLING_STREET` / `POP_BILLING_CITY` / `POP_BILLING_STATE` / `POP_BILLING_COUNTRY` / `POP_BILLING_ZIP` | _(empty)_ | Auto-fill address fields; state and country matched fuzzily against dropdown options |
+| `POP_ALLOWED_PAYMENT_PROCESSORS` | `[]` | Extra third-party payment processor domains to trust (pop-pay ships with 20 built-in) |
 
 > **After editing `.env`, fully close and reopen Claude Code.** The MCP server loads configuration at startup — `!claude mcp list` alone is not sufficient to pick up `.env` changes.
 

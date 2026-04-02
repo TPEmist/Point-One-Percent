@@ -25,7 +25,7 @@ Guardrails are the "brains" that decide whether a payment should be approved or 
 
 ### Browser Injector (Autonomous Fulfillment)
 For agent frameworks evaluating DOMs, Point One Percent autonomously fulfills authorized payments without leaking the card directly to the LLM. Once the policy and guardrails approve a request, the injection and submission happen without any per-transaction human confirmation.
-- **PopBrowserInjector**: Connects strictly out-of-band via CDP (`Chrome DevTools Protocol`). Traverses cross-origin iframes (i.e. Stripe Elements) and auto-populates `<input>` elements safely. After injection, the agent clicks the submit button — this is a standard browser interaction, not a security concern, since card credentials are never in the agent's context.
+- **PopBrowserInjector**: Connects strictly out-of-band via CDP (`Chrome DevTools Protocol`). Traverses cross-origin iframes (i.e. Stripe Elements) and auto-populates `<input>` and `<select>` elements safely. After injection, the agent clicks the submit button — this is a standard browser interaction, not a security concern, since card credentials are never in the agent's context.
 - **Chrome must be launched with `--remote-debugging-port=9222`** before the injector can attach. Use `--user-data-dir` as well if Chrome is already running (required to open a separate CDP-enabled instance).
 - **When using Playwright MCP** (e.g., with Claude Code), configure it with `--cdp-endpoint http://localhost:9222` so that both Playwright MCP and Point One Percent MCP share the same Chrome instance. See [docs/INTEGRATION_GUIDE.md §1](./docs/INTEGRATION_GUIDE.md#1-claude-code--full-setup-with-cdp-injection) for the full setup.
 
@@ -112,5 +112,14 @@ The `PopBrowserInjector` handles most common checkout forms and cross-origin Str
 - `pop_state.db` audit log already stores structured data — the detailed reason should continue to be written there.
 - A new `rejection_detail` column (or existing `rejection_reason`) in `issued_seals` / audit log should surface in the Dashboard's transaction table.
 - Edge case: injection failures that require agent action (e.g. "card fields not found — pass page_url") are UX errors, not security rejections, and may still return actionable messages to the agent.
+
+### 7. Known Payment Processors List
+
+`pop_pay/engine/known_processors.py` contains the built-in allowlist of third-party payment processors that are trusted to pass the TOCTOU domain guard. When a vendor's checkout page redirects to one of these domains, pop-pay allows the injection to proceed.
+
+**Contributions welcome:** If you encounter a legitimate payment processor that is not on the list, open a PR that adds it to `KNOWN_PAYMENT_PROCESSORS` in `known_processors.py`. Please include:
+- The processor's domain (e.g. `"pay.example.com"`)
+- A comment with the processor name and one or two example vendors that use it
+- A brief note in the PR description confirming you verified the domain is controlled by the payment processor, not a reseller or affiliate
 
 If you have an idea for a feature or a bug fix, please open an issue or submit a Pull Request!
