@@ -5,21 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.16] - 2026-04-01
-
-### Fixed
-- **mcp_server.py — RuntimeError not caught (H):** Vault `load_vault()` raises `RuntimeError` when a hardened vault exists but OSS source is running. Added `RuntimeError` to the existing `except (ValueError, RuntimeError)` guard — server no longer crashes on startup in this configuration.
-- **langchain.py — dict injection result always truthy (H-1):** `inject_payment_info()` returns a dict; `if not injection_ok:` was always False for any non-empty dict, masking injection failures and skipping budget rollback. Now inspects `card_filled` key explicitly.
-- **inject_billing_only — missing billing fields (H-2):** `billing_info` dict in `inject_billing_only` was missing `city`, `state`, `country`, `phone_country_code`. All `POP_BILLING_*` env vars now consistently read in both `inject_payment_info` and `inject_billing_only`.
-- **llm_guardrails.py — @retry decorator never fires (M-4):** All exceptions were caught inside `evaluate_intent`, preventing tenacity from seeing them. Retriable errors (`APIStatusError` with 429/5xx, `APIConnectionError`) now re-raise so tenacity can back off and retry.
-
-### Docs
-- **Integration Guide L-3:** Removed non-existent `get_seal_details()` call; replaced with correct `seal.card_number / .cvv / .expiration_date` access.
-- **README M-1:** Added explicit note that Stripe Issuing returns last-4-only — CDP auto-injection is incompatible; BYOC required for injection.
-
 ## [0.6.15] - 2026-04-01
 
 ### Fixed
+- **`inject_billing_only` missing billing fields:** Same issue as `inject_payment_info` — city/state/country/phone_country_code not populated in `inject_billing_only`'s local billing_info dict. `request_purchaser_info` was affected.
 - **`inject_payment_info` missing billing fields:** The `billing_info` dict built inside `inject_payment_info` was not updated when city/state/country/phone_country_code were added in v0.6.12–0.6.14. Fields were correctly wired in `_fill_billing_fields()` but never populated — phone country code, country, state, and city injection silently failed via `request_virtual_card`. All fields now read from env vars consistently.
 
 ## [0.6.14] - 2026-04-01
