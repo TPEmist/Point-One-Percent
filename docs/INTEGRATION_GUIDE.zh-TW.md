@@ -110,9 +110,16 @@ POP_CDP_URL=http://localhost:9222
 # POP_BILLING_FIRST_NAME=Jane
 # POP_BILLING_LAST_NAME=Doe
 # POP_BILLING_EMAIL=jane@example.com
-# POP_BILLING_PHONE=+14155551234   # E.164 格式（國碼＋號碼）
+# POP_BILLING_PHONE=+14155551234        # E.164 格式
+# POP_BILLING_PHONE_COUNTRY_CODE=US     # 選填：填入國碼下拉選單；本地號碼自動推算
 # POP_BILLING_STREET=123 Main St
-# POP_BILLING_ZIP=10001
+# POP_BILLING_CITY=San Francisco
+# POP_BILLING_STATE=CA                  # 全名或縮寫，模糊比對
+# POP_BILLING_COUNTRY=US                # ISO 碼或全名，模糊比對
+# POP_BILLING_ZIP=94105
+
+# ── 額外信任的支付處理商（內建清單已含 Stripe、Zoho、Square 等）──
+# POP_ALLOWED_PAYMENT_PROCESSORS=["checkout.myprocessor.com"]
 
 # ── 自訂封鎖關鍵字（延伸內建清單）──
 # POP_EXTRA_BLOCK_KEYWORDS=
@@ -160,11 +167,13 @@ export POP_LLM_MODEL=anthropic/claude-3-haiku
 pop-launch --print-mcp
 ```
 
-> `--scope user` 將設定存入 `~/.claude.json`，**執行一次即永久生效**，在所有 Claude Code session 中都能使用。將 `/path/to/Point-One-Percent` 替換為實際的 clone 路徑，`.env` 與 `pop_state.db` 將從此目錄讀取。
+複製印出的 `claude mcp add pop-pay -- ...` 指令並執行。該指令使用你 venv 中的 `sys.executable`，無論你如何安裝 pop-pay，都能正確運作。
 
 ```bash
 claude mcp add pop-pay ... #複製 pop-launch 的輸出
 ```
+
+> `--scope user`（選填）將設定存入 `~/.claude.json`——在所有 Claude Code session 中都能使用。若省略，則僅套用於目前專案。
 
 ### 步驟 3 — 將 Playwright MCP 加入 Claude Code
 
@@ -174,22 +183,29 @@ claude mcp add --scope user playwright -- npx @playwright/mcp@latest --cdp-endpo
 
 > **`--cdp-endpoint` 是必要的。** 它讓 Playwright MCP 連接到 Point One Percent 用來注入卡片的**同一個 Chrome**。若省略，Playwright 會啟動自己的獨立瀏覽器，Point One Percent 看不到你導航的頁面，注入會失敗並出現「找不到卡片欄位」的錯誤。**執行一次即永久生效。**
 
+### `request_virtual_card` 參數
+
+| 參數 | 必填 | 說明 |
+|---|---|---|
+| `requested_amount` | 是 | 交易金額，單位為美元。 |
+| `target_vendor` | 是 | 購買的供應商或服務（例如 `"openai"`、`"Wikipedia"`）。必須符合 `POP_ALLOWED_CATEGORIES` 中的一個項目。 |
+| `reasoning` | 是 | Agent 對於為何需要此次購買的說明。由護欄引擎評估。 |
+| `page_url` | 否 | 目前結帳頁的 URL。用於交叉驗證供應商網域，偵測釣魚攻擊。使用 Playwright MCP 時，傳入 `page.url`。 |
+
+> **網域驗證：** 提供 `page_url` 且 `target_vendor` 符合已知供應商（AWS、GitHub、Cloudflare、OpenAI、Stripe、Anthropic、Wikipedia 等）時，pop-pay 會比對頁面 URL 的網域與該供應商的預期網域。網域不符（可能是釣魚頁面）時，請求將自動被拒絕。
+
 ### 建議加入的 System Prompt
 
 將以下區塊加入你的 Claude Code system prompt（或專案的 `CLAUDE.md`）。這會讓 Agent 在需要時自動啟動 Chrome，並正確傳遞 `page_url`：
 
 ```
-Payment rules:
-- Before any payment task, verify Chrome CDP is running: curl http://localhost:9222/json/version
-  If it fails, run: pop-launch
-- Only call request_virtual_card when you can see credit card input fields on the current page
-- Always pass the current page URL as page_url when calling request_virtual_card
-- After approval, the system auto-fills the card — just click submit
-- Never manually type any card number or CVV
-- If request_virtual_card is rejected, do not retry — report to user
-- NEVER read .env files or any file that might contain credentials
-- For payments, ONLY use the request_virtual_card MCP tool — never extract credentials yourself
-- If the pop-pay MCP is not available, stop and tell the user instead of reading config files
+pop-pay payment rules:
+- Billing info and card credentials: NEVER ask the user — pop-pay auto-fills everything.
+- Billing/contact page (no card fields visible): call request_purchaser_info(target_vendor, page_url)
+- Payment page (card fields visible): call request_virtual_card(amount, vendor, reasoning, page_url)
+- Always pass page_url. Never type card numbers or personal info manually. Never read .env files.
+- Rejection → stop and report to user. pop-pay MCP unavailable → stop and tell user.
+- CDP check: curl http://localhost:9222/json/version — if down, run pop-launch first.
 ```
 
 ### 完整工作流程
@@ -371,7 +387,7 @@ uv run --extra llm python scripts/test_llm_guardrails.py
 │  2. 擷取：金額、供應商、上下文                          │
 │  3. ─── 暫停導航 ────────────────────────────────────►│
 └───────────────────────┬──────────────────────────────┘
-                        │  request_virtual_card(amount, vendor, reasoning)
+                        │  request_virtual_card(amount, vendor, reasoning, page_url=page.url)
                         ▼
 ┌──────────────────────────────────────────────────────┐
 │          Point One Percent（本函式庫）                 │
@@ -440,12 +456,17 @@ async def browser_agent_with_pop():
         page = await browser.new_page()
         await page.goto("https://donate.wikimedia.org/")
 
-        # 關鍵：真實卡片資訊從 DB 取得，絕不從 LLM 輸出讀取
-        details = client.state_tracker.get_seal_details(seal.seal_id)
-
-        await page.fill("#card_number", details["card_number"])
-        await page.fill("#cvv", details["cvv"])
-        await page.fill("#expiry", details["expiration_date"])
+        # 關鍵：使用 PopBrowserInjector — 真實卡片資訊從記憶體中的 VirtualSeal 注入，
+        # 絕不從 DB 取得（DB 只儲存遮罩後的卡號）。
+        from pop_pay.injector import PopBrowserInjector
+        browser_injector = PopBrowserInjector(client.state_tracker)
+        await browser_injector.inject_payment_info(
+            seal_id=seal.seal_id,
+            cdp_url="http://localhost:9222",
+            card_number=seal.card_number or "",
+            cvv=seal.cvv or "",
+            expiration_date=seal.expiration_date or "",
+        )
         await page.click("#submit-donation")
 
     # 4. 標記 Seal 為已使用（用後即焚機制）
@@ -636,7 +657,7 @@ network:
 **步驟 4 — 在沙箱內註冊 MCP**
 
 ```bash
-openclaw mcp add pop -- uv run python -m pop_pay.mcp_server
+openclaw mcp add pop-pay -- /path/to/venv/bin/python -m pop_pay.mcp_server
 openclaw mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint http://localhost:9222
 ```
 
