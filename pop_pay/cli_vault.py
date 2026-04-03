@@ -133,16 +133,16 @@ def cmd_init_vault():
                 "# Guardrail engine: keyword (default, zero-cost) or llm\n"
                 "# POP_GUARDRAIL_ENGINE=keyword\n\n"
                 "# Billing info for auto-filling name/address fields on checkout pages\n"
-                "# POP_BILLING_FIRST_NAME=Jane\n"
-                "# POP_BILLING_LAST_NAME=Doe\n"
-                "# POP_BILLING_EMAIL=jane@example.com\n"
+                "# POP_BILLING_FIRST_NAME=Bob\n"
+                "# POP_BILLING_LAST_NAME=Smith\n"
+                "# POP_BILLING_EMAIL=bob@example.com\n"
+                "# POP_BILLING_PHONE_COUNTRY_CODE=+1\n"
                 "# POP_BILLING_PHONE=+14155551234\n"
                 "# POP_BILLING_STREET=123 Main St\n"
-                "# POP_BILLING_ZIP=10001\n"
-                "# POP_BILLING_CITY=New York\n"
-                "# POP_BILLING_STATE=NY\n"
+                "# POP_BILLING_CITY=Redwood City\n"
+                "# POP_BILLING_ZIP=94043\n"
+                "# POP_BILLING_STATE=CA\n"
                 "# POP_BILLING_COUNTRY=US\n"
-                "# POP_BILLING_PHONE_COUNTRY_CODE=+1\n"
             )
             policy_env_path.chmod(0o600)
             print(f"Template created at {policy_env_path} — edit to set your policy.")

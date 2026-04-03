@@ -107,16 +107,16 @@ POP_CDP_URL=http://localhost:9222
 # POP_GUARDRAIL_ENGINE=keyword
 
 # ── 帳單資料（自動填入結帳頁的姓名、地址、電話欄位）──
-# POP_BILLING_FIRST_NAME=Jane
-# POP_BILLING_LAST_NAME=Doe
-# POP_BILLING_EMAIL=jane@example.com
-# POP_BILLING_PHONE=+14155551234        # E.164 格式
+# POP_BILLING_FIRST_NAME=Bob
+# POP_BILLING_LAST_NAME=Smith
+# POP_BILLING_EMAIL=bob@example.com
 # POP_BILLING_PHONE_COUNTRY_CODE=US     # 選填：填入國碼下拉選單；本地號碼自動推算
+# POP_BILLING_PHONE=+14155551234        # E.164 格式
 # POP_BILLING_STREET=123 Main St
-# POP_BILLING_CITY=San Francisco
+# POP_BILLING_CITY=Redwood City
 # POP_BILLING_STATE=CA                  # 全名或縮寫，模糊比對
 # POP_BILLING_COUNTRY=US                # ISO 碼或全名，模糊比對
-# POP_BILLING_ZIP=94105
+# POP_BILLING_ZIP=94043
 
 # ── 額外信任的支付處理商（內建清單已含 Stripe、Zoho、Square 等）──
 # POP_ALLOWED_PAYMENT_PROCESSORS=["checkout.myprocessor.com"]
