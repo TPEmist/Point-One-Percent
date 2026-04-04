@@ -1,9 +1,12 @@
 import httpx
+import ipaddress
 import os
 import json
 import asyncio
+import re
 import uuid
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from pathlib import Path
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
@@ -54,8 +57,17 @@ from pop_pay.providers.stripe_mock import MockStripeProvider
 from pop_pay.providers.byoc_local import LocalVaultProvider
 from pop_pay.client import PopClient
 
-# Global cache for page snapshots
-snapshot_cache = {}
+# Global cache for page snapshots (capped at 200 entries, oldest evicted)
+snapshot_cache: dict = {}
+_SNAPSHOT_CACHE_MAX = 200
+
+# Compiled regex for hidden element detection in page_snapshot
+_HIDDEN_STYLE_RE = re.compile(
+    r"""(?:style\s*=\s*["'](?:[^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0|font-size\s*:\s*0|height\s*:\s*0|width\s*:\s*0))[^"']*["'])"""
+    r"""|(?:class\s*=\s*["'](?:[^"']*(?:hidden|visually-hidden|sr-only|d-none))[^"']*["'])""",
+    re.I
+)
+_PRICE_RE = re.compile(r'[\$£€¥]\s?\d+(?:\.\d{2})?')
 
 mcp = FastMCP("pop-pay")
 
@@ -135,14 +147,28 @@ async def page_snapshot(page_url: str) -> str:
     snapshot_id = str(uuid.uuid4())
     flags = []
     html = ""
-    
+
+    # Guard: block SSRF attempts (private IPs, loopback, non-https)
+    try:
+        _parsed = urlparse(page_url)
+        if _parsed.scheme != "https":
+            return "ERROR: page_snapshot only accepts https:// URLs."
+        _host = _parsed.hostname or ""
+        try:
+            _addr = ipaddress.ip_address(_host)
+            if _addr.is_private or _addr.is_loopback or _addr.is_link_local or _addr.is_reserved:
+                return "ERROR: page_snapshot does not allow requests to private/internal addresses."
+        except ValueError:
+            pass  # hostname (not raw IP) — allow
+    except Exception:
+        return "ERROR: Invalid URL."
+
     # 1. Fetch HTML and Check SSL/Redirects
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as http_client:
             response = await http_client.get(page_url)
             html = response.text
             
-            from urllib.parse import urlparse
             if urlparse(str(response.url)).netloc != urlparse(page_url).netloc:
                 flags.append("unexpected_redirect")
             
@@ -156,15 +182,9 @@ async def page_snapshot(page_url: str) -> str:
     hidden_instructions_detected = False
     
     # Scan for hidden elements with instructions
-    hidden_style_regex = re.compile(
-        r'(?:style\s*=\s*["'](?:[^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0|font-size\s*:\s*0|height\s*:\s*0|width\s*:\s*0))[^"']*["'])'
-        r'|(?:class\s*=\s*["'](?:[^"']*(?:hidden|visually-hidden|sr-only|d-none))[^"']*["'])',
-        re.I
-    )
-    
     instruction_keywords = ["ignore", "instead", "system", "user", "override", "instruction", "always", "never", "prompt"]
-    
-    for match in hidden_style_regex.finditer(html):
+
+    for match in _HIDDEN_STYLE_RE.finditer(html):
         context = html[match.end() : match.end() + 300].lower()
         if any(kw in context for kw in instruction_keywords):
             hidden_instructions_detected = True
@@ -174,11 +194,14 @@ async def page_snapshot(page_url: str) -> str:
         flags.append("hidden_instructions_detected")
 
     # 3. Price Mismatch (Basic heuristic)
-    prices = re.findall(r'[\$£€¥]\s?\d+(?:\.\d{2})?', html)
+    prices = _PRICE_RE.findall(html)
     if len(set(prices)) > 2:
         flags.append("price_mismatch")
 
-    # Store in cache
+    # Store in cache (evict oldest if at capacity)
+    if len(snapshot_cache) >= _SNAPSHOT_CACHE_MAX:
+        oldest_url = min(snapshot_cache, key=lambda k: snapshot_cache[k]["timestamp"])
+        del snapshot_cache[oldest_url]
     snapshot_cache[page_url] = {
         "snapshot_id": snapshot_id,
         "timestamp": datetime.now(),
