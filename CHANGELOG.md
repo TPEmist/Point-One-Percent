@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.19] - 2026-04-04
 
+### Removed
+- **`page_snapshot` MCP tool (breaking change):** Removed the public `page_snapshot()` MCP tool. The same scan now runs automatically inside `request_virtual_card` whenever `page_url` is provided. Agents that called `page_snapshot` explicitly should remove those calls.
+
+### Fixed
+- `_scan_page` error strings updated from "page_snapshot only accepts..." to "pop-pay only accepts..." — no longer references a removed tool name.
+
 ### Added
 - **Screenshot Blackout Security (P1):** Added `_enable_blackout()` and `_disable_blackout()` methods to `PopBrowserInjector`. During credential injection (card or billing), a full-screen black overlay (`z-index: 999999`, `pointer-events: none`) is now applied to the browser viewport. Prevents screen recording or screenshot tools from capturing sensitive fields while they are being filled. Restoration is guaranteed via `finally` blocks.
 

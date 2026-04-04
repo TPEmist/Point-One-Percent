@@ -61,7 +61,7 @@ from pop_pay.client import PopClient
 snapshot_cache: dict = {}
 _SNAPSHOT_CACHE_MAX = 200
 
-# Compiled regex for hidden element detection in page_snapshot
+# Compiled regex for hidden element detection in _scan_page
 _HIDDEN_STYLE_RE = re.compile(
     r"""(?:style\s*=\s*["'](?:[^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0|font-size\s*:\s*0|height\s*:\s*0|width\s*:\s*0))[^"']*["'])"""
     r"""|(?:class\s*=\s*["'](?:[^"']*(?:hidden|visually-hidden|sr-only|d-none))[^"']*["'])""",
@@ -147,12 +147,12 @@ async def _scan_page(page_url: str) -> dict:
     try:
         _parsed = urlparse(page_url)
         if _parsed.scheme != "https":
-            return {"flags": ["invalid_url"], "snapshot_id": snapshot_id, "safe": False, "error": "page_snapshot only accepts https:// URLs."}
+            return {"flags": ["invalid_url"], "snapshot_id": snapshot_id, "safe": False, "error": "pop-pay only accepts https:// URLs."}
         _host = _parsed.hostname or ""
         try:
             _addr = ipaddress.ip_address(_host)
             if _addr.is_private or _addr.is_loopback or _addr.is_link_local or _addr.is_reserved:
-                return {"flags": ["ssrf_blocked"], "snapshot_id": snapshot_id, "safe": False, "error": "page_snapshot does not allow requests to private/internal addresses."}
+                return {"flags": ["ssrf_blocked"], "snapshot_id": snapshot_id, "safe": False, "error": "pop-pay does not allow requests to private/internal addresses."}
         except ValueError:
             pass  # hostname (not raw IP) — allow
     except Exception:
