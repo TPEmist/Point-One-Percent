@@ -224,9 +224,9 @@ pop-pay payment rules:
 ### Your First Live Test
 
 Once both MCPs are connected, paste this into a new Claude Code conversation:
-
+```bash
 > Donate $10 to Wikipedia, with credit card, pay with pop-pay. Fill in the payment details, but **do not submit** — I will review and confirm before proceeding.
-
+```
 > **Note:** The `"do not submit"` instruction is for initial testing only. Once you have verified the injection flow works correctly, remove it from your prompt to enable fully autonomous payments within your configured policy limits.
 
 **Expected flow:** Agent navigates → selects $10 → clicks "Donate by credit/debit card" → calls `request_virtual_card` → Point One Percent injects card + billing details via CDP → agent waits for your confirmation.
@@ -623,7 +623,11 @@ openclaw mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint http://
 
 Use the Wikipedia donation page — simple checkout, no account required.
 
-1. Direct your agent to `https://donate.wikimedia.org`, select $10, choose "Credit Card", and proceed to the form asking for payment details.
+```bash
+> Donate $10 to Wikipedia, with credit card, pay with pop-pay. Fill in the payment details, but **do not submit** — I will review and confirm before proceeding.
+```
+
+1. Your agent navigates to `https://donate.wikimedia.org`, select $10, choose "Credit Card", and proceed to the form asking for payment details.
 
 2. On the billing info page, the agent calls:
    ```
@@ -716,9 +720,9 @@ openclaw mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint http://
 ### Your First Live Test
 
 Once your agent is configured with the system prompt above, try this task:
-
+```bash
 > Donate $10 to Wikipedia, with credit card, pay with pop-pay. Fill in the payment details, but **do not submit** — I will review and confirm before proceeding.
-
+```
 > **Note:** The `"do not submit"` instruction is for initial testing only. Once you have verified the injection flow works correctly, remove it from your prompt to enable fully autonomous payments within your configured policy limits.
 
 If the guardrails approve the request and the card details are injected into the form, Point One Percent is working correctly end-to-end.
