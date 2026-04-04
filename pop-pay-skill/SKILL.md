@@ -58,22 +58,6 @@ POP_WEBHOOK_URL=https://hooks.slack.com/your-hook-here
 
 ## Tools
 
-### `page_snapshot`
-
-**When to call**: Before calling `request_virtual_card`. Scans the checkout page for prompt injection attacks.
-
-```
-page_snapshot(
-    page_url: str   # current checkout page URL
-)
-```
-
-- Scans for hidden text with instructions, display:none elements, SSL anomalies, unexpected redirects
-- Returns ABORT if prompt injection is detected
-- Result is cached for 5 minutes — valid for the subsequent `request_virtual_card` call
-
----
-
 ### `request_purchaser_info`
 
 **When to call**: You are on a contact/billing info page with fields for name, email, phone, or address—but no credit card fields are visible yet.
@@ -120,9 +104,6 @@ request_virtual_card(
 Agent navigates to product page
   ↓
 Agent clicks "Checkout" / "Proceed to payment"
-  ↓
-[Security check]
-  → call page_snapshot(page_url)
   ↓
 [If billing page appears first]
   → call request_purchaser_info(vendor, page_url, reasoning)
@@ -173,11 +154,7 @@ Agent clicks "Checkout" / "Proceed to payment"
 
 # Step 1: Navigate to Amazon, find the product, add to cart, proceed to checkout
 
-# Step 2: Security scan
-result = page_snapshot(page_url="https://www.amazon.com/checkout/payment")
-# → "Page snapshot completed. You may proceed."
-
-# Step 3: On billing info page
+# Step 2: On billing info page
 result = request_purchaser_info(
     target_vendor="Amazon",
     page_url="https://www.amazon.com/checkout/address",
@@ -185,7 +162,8 @@ result = request_purchaser_info(
 )
 # → Billing info injected. Click Continue.
 
-# Step 4: On payment page
+# Step 3: On payment page
+# Security scan runs automatically inside request_virtual_card when page_url is provided
 result = request_virtual_card(
     requested_amount=43.99,
     target_vendor="Amazon",
