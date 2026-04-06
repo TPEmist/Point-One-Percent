@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.26] - 2026-04-06
+
+### Fixed
+- **Select dropdown rewrite:** Replaced Playwright `select_option()` (silently fails on Zoho/React over CDP) with JavaScript-based selection as primary approach. Fires full event chain: focusin → focus → mousedown → mouseup → click → input → change → blur → focusout. Matching priority: exact value → exact text → partial match.
+
 ## [0.6.25] - 2026-04-06
 
 ### Fixed

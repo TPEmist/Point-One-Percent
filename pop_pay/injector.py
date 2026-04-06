@@ -677,69 +677,84 @@ class PopBrowserInjector:
 
     async def _select_option(self, locator, value: str) -> bool:
         """
-        Select a <select> option by value, label, or fuzzy label match.
-        Tries in order: exact value → exact label → case-insensitive partial match.
-        After selection, dispatches change/input/blur events to ensure
-        framework state updates (React, Zoho, etc.).
-        Returns True if an option was selected.
+        Select a <select> option by value, label, or fuzzy match.
+
+        PRIMARY approach: JavaScript-based selection with full event chain.
+        Playwright's select_option() silently fails on some frameworks (Zoho,
+        custom React/Angular) when connected via CDP to an existing browser.
+        Using JS evaluate() is more reliable across frameworks.
+
+        Matching order:
+        1. Exact value match (case-insensitive)
+        2. Exact label/text match (case-insensitive)
+        3. Partial match (value contained in text or vice versa)
         """
-        # Exact value match
-        try:
-            await locator.select_option(value=value)
-            await self._dispatch_events(locator)
-            return True
-        except Exception:
-            pass
-        # Exact label match
-        try:
-            await locator.select_option(label=value)
-            await self._dispatch_events(locator)
-            return True
-        except Exception:
-            pass
-        # Fuzzy match against option text / value
-        try:
-            options = await locator.evaluate(
-                "el => Array.from(el.options).map(o => ({value: o.value, text: o.text.trim()}))"
-            )
-            value_lower = value.lower()
-            # Exact case-insensitive
-            for opt in options:
-                if value_lower in (opt["text"].lower(), opt["value"].lower()):
-                    await locator.select_option(value=opt["value"])
-                    await self._dispatch_events(locator)
-                    return True
-            # Partial: user value contained in option text, or option text in user value
-            for opt in options:
-                opt_text = opt["text"].lower()
-                if value_lower in opt_text or opt_text in value_lower:
-                    await locator.select_option(value=opt["value"])
-                    await self._dispatch_events(locator)
-                    return True
-        except Exception:
-            pass
-        # Last resort: JavaScript-based setValue + dispatch for non-standard <select>
         try:
             set_result = await locator.evaluate("""(el, val) => {
                 const valLower = val.toLowerCase();
+
+                // Build match candidates in priority order
+                let bestMatch = null;
+
                 for (const opt of el.options) {
-                    if (opt.value.toLowerCase() === valLower ||
-                        opt.text.trim().toLowerCase() === valLower ||
-                        opt.text.trim().toLowerCase().includes(valLower) ||
-                        valLower.includes(opt.text.trim().toLowerCase())) {
-                        el.value = opt.value;
-                        el.dispatchEvent(new Event('input', { bubbles: true }));
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
-                        el.dispatchEvent(new Event('blur', { bubbles: true }));
-                        return true;
+                    const optVal = opt.value.toLowerCase();
+                    const optText = opt.text.trim().toLowerCase();
+
+                    // Priority 1: exact value match
+                    if (optVal === valLower) { bestMatch = opt.value; break; }
+                    // Priority 2: exact text match
+                    if (optText === valLower) { bestMatch = opt.value; break; }
+                }
+
+                // Priority 3: partial match (only if no exact match)
+                if (!bestMatch) {
+                    for (const opt of el.options) {
+                        const optVal = opt.value.toLowerCase();
+                        const optText = opt.text.trim().toLowerCase();
+                        if (optText.includes(valLower) || valLower.includes(optText) ||
+                            optVal.includes(valLower) || valLower.includes(optVal)) {
+                            if (opt.value) { bestMatch = opt.value; break; }
+                        }
                     }
                 }
-                return false;
+
+                if (!bestMatch) return false;
+
+                // Set the value
+                el.value = bestMatch;
+
+                // Fire comprehensive event chain for framework compatibility
+                // (React, Angular, Vue, Zoho, Salesforce, etc.)
+                el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+                el.dispatchEvent(new FocusEvent('focus', { bubbles: false }));
+                el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new FocusEvent('blur', { bubbles: false }));
+                el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+
+                return true;
             }""", value)
             if set_result:
+                logger.info("PopBrowserInjector: select option set to '%s' via JS.", value)
                 return True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("PopBrowserInjector: JS select failed: %s", exc)
+
+        # Fallback: Playwright native select_option (works when JS approach fails)
+        for attempt_fn in [
+            lambda: locator.select_option(value=value),
+            lambda: locator.select_option(label=value),
+        ]:
+            try:
+                await attempt_fn()
+                await self._dispatch_events(locator)
+                return True
+            except Exception:
+                pass
+
         return False
 
     async def _fill_field(
