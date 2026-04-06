@@ -663,15 +663,20 @@ class PopBrowserInjector:
     @staticmethod
     async def _dispatch_events(locator) -> None:
         """
-        Dispatch change, input, and blur events on an element to ensure
-        framework state updates (React, Angular, Vue, Zoho, etc.).
-        Playwright's select_option() triggers some events, but custom
-        frameworks often need explicit dispatching.
+        Dispatch trusted change/input events via Playwright's dispatch_event().
+
+        Key: Playwright's dispatch_event() creates TRUSTED events (isTrusted=true),
+        unlike el.dispatchEvent() in evaluate() which creates untrusted events.
+        Frameworks like Zoho, React, Angular check isTrusted and ignore untrusted ones.
         """
         try:
+            await locator.dispatch_event("input")
+            await locator.dispatch_event("change")
+        except Exception:
+            pass
+        # Also fire untrusted blur/focusout as safety net (some frameworks need them)
+        try:
             await locator.evaluate("""el => {
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
                 el.dispatchEvent(new Event('blur', { bubbles: true }));
             }""")
         except Exception:

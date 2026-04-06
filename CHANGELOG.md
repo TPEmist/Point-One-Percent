@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.31] - 2026-04-06
+
+### Fixed
+- **Select dropdown — trusted events:** Root cause: `el.dispatchEvent()` in JS evaluate creates untrusted events (`isTrusted: false`). Zoho and other frameworks ignore untrusted change/input events. Fix: use Playwright's `locator.dispatch_event()` which creates trusted events (`isTrusted: true`).
+
 ## [0.6.30] - 2026-04-06
 
 ### Changed
