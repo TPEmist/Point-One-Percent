@@ -853,11 +853,32 @@ class PopBrowserInjector:
         Returns dict with per-field results: {"filled": [...], "failed": [...], "skipped": [...]}.
         """
         # Use page (not just main_frame) so get_by_label can search via accessibility tree.
-        # CSS selectors still search main_frame via _find_visible_locator.
         f = page
         filled = []
         failed = []
         skipped = []
+        _diag = []  # diagnostic info for select debugging
+
+        # --- Direct select test (same call as Playwright MCP) ---
+        state_raw_val = billing_info.get("state", "")
+        state_expanded = US_STATE_CODES.get(state_raw_val.upper(), state_raw_val) if len(state_raw_val) == 2 else state_raw_val
+        country_val = billing_info.get("country", "")
+        try:
+            await page.get_by_label("State").select_option([state_expanded])
+            _diag.append(f"DIRECT_STATE=ok({state_expanded})")
+        except Exception as e:
+            _diag.append(f"DIRECT_STATE=fail({e})")
+        try:
+            await page.get_by_label("Country").select_option([country_val])
+            _diag.append(f"DIRECT_COUNTRY=ok({country_val})")
+        except Exception as e:
+            # Try with "Country / Region" which is the aria-label in Zoho
+            try:
+                await page.get_by_label("Country / Region").select_option([country_val])
+                _diag.append(f"DIRECT_COUNTRY=ok_alt({country_val})")
+            except Exception as e2:
+                _diag.append(f"DIRECT_COUNTRY=fail({e2})")
+        # --- End direct test ---
 
         first_name = billing_info.get("first_name", "")
         last_name  = billing_info.get("last_name", "")
@@ -908,7 +929,7 @@ class PopBrowserInjector:
         phone_value = _national_number(phone, phone_country_code) if cc_filled else phone
         await _try(PHONE_SELECTORS, phone_value, "phone")
 
-        result = {"filled": filled, "failed": failed, "skipped": skipped}
+        result = {"filled": filled, "failed": failed, "skipped": skipped, "select_diag": _diag}
         logger.info("PopBrowserInjector: billing results: %s", result)
         return result
 

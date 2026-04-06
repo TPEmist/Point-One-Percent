@@ -442,9 +442,12 @@ async def request_virtual_card(
         if billing_filled and billing_details:
             bd_filled = billing_details.get("filled", [])
             bd_failed = billing_details.get("failed", [])
+            bd_diag = billing_details.get("select_diag", [])
             billing_note = f" Billing filled: {bd_filled}."
             if bd_failed:
                 billing_note += f" FAILED: {bd_failed}."
+            if bd_diag:
+                billing_note += f" SELECT_DIAG: {bd_diag}."
         elif billing_filled:
             billing_note = " Billing fields filled."
         else:
