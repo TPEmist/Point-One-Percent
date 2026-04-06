@@ -62,6 +62,25 @@ def _national_number(phone_e164: str, country_code: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# US state abbreviation → full name mapping (for dropdowns that use full names)
+# ---------------------------------------------------------------------------
+US_STATE_CODES: dict[str, str] = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "DC": "District of Columbia", "FL": "Florida", "GA": "Georgia", "HI": "Hawaii",
+    "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine",
+    "MD": "Maryland", "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota",
+    "MS": "Mississippi", "MO": "Missouri", "MT": "Montana", "NE": "Nebraska",
+    "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico",
+    "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+    "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island",
+    "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas",
+    "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington",
+    "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+}
+
+# ---------------------------------------------------------------------------
 # Common CSS selectors for credit card fields across major payment providers
 # ---------------------------------------------------------------------------
 CARD_NUMBER_SELECTORS = [
@@ -293,8 +312,101 @@ class PopBrowserInjector:
         success = await injector.inject_payment_info(seal_id, card_number=seal.card_number, cvv=seal.cvv, expiration_date=seal.expiration_date)
     """
 
-    def __init__(self, state_tracker: PopStateTracker):
+    def __init__(self, state_tracker: PopStateTracker, headless: bool = False):
         self.state_tracker = state_tracker
+        self.headless = headless
+
+    # ------------------------------------------------------------------
+    # Shared TOCTOU domain verification
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _verify_domain_toctou(page_url: str, approved_vendor: str) -> str | None:
+        """Verify the current page domain matches the approved vendor.
+
+        Uses KNOWN_VENDOR_DOMAINS suffix matching (same as guardrail layer 1) to
+        prevent subdomain-spoofing bypasses like "wikipedia.attacker.com".
+
+        Returns None if the domain is OK, or a blocked_reason string
+        (e.g. "domain_mismatch:<domain>") if the check fails.
+        """
+        if not page_url or not approved_vendor:
+            return None
+
+        from urllib.parse import urlparse
+        import re
+        from pop_pay.engine.guardrails import KNOWN_VENDOR_DOMAINS
+
+        actual_domain = urlparse(page_url).netloc.lower().removeprefix("www.")
+        vendor_lower = approved_vendor.lower()
+        vendor_tokens = set(re.split(r'[\s\-_./]+', vendor_lower)) - {''}
+
+        domain_ok = False
+        vendor_is_known = False
+        # First: check against KNOWN_VENDOR_DOMAINS using strict suffix matching.
+        for known_vendor, known_domains in KNOWN_VENDOR_DOMAINS.items():
+            if known_vendor in vendor_tokens or known_vendor == vendor_lower:
+                vendor_is_known = True
+                if any(actual_domain == d or actual_domain.endswith("." + d)
+                       for d in known_domains):
+                    domain_ok = True
+                break
+        # Fallback ONLY for vendors absent from KNOWN_VENDOR_DOMAINS.
+        if not domain_ok and not vendor_is_known:
+            _common_tlds = {'com', 'org', 'net', 'io', 'co', 'uk', 'jp', 'de', 'fr'}
+            domain_labels = set(actual_domain.split(".")) - _common_tlds
+            domain_ok = (
+                bool(vendor_tokens.intersection(domain_labels))
+                or any(
+                    tok in label
+                    for tok in vendor_tokens
+                    for label in domain_labels
+                    if len(tok) >= 4
+                )
+            )
+
+        # Payment processor passthrough
+        if not domain_ok:
+            import json as _json
+            from pop_pay.engine.guardrails import KNOWN_PAYMENT_PROCESSORS
+            _user_processors = set(_json.loads(
+                os.getenv("POP_ALLOWED_PAYMENT_PROCESSORS", "[]")
+            ))
+            _all_processors = KNOWN_PAYMENT_PROCESSORS | _user_processors
+            if any(actual_domain == p or actual_domain.endswith("." + p)
+                   for p in _all_processors):
+                domain_ok = True
+                logger.info(
+                    "PopBrowserInjector: domain '%s' is a known payment processor "
+                    "-- TOCTOU passed for vendor '%s'.",
+                    actual_domain, approved_vendor,
+                )
+
+        if not domain_ok:
+            logger.warning(
+                "PopBrowserInjector: TOCTOU domain mismatch -- "
+                "approved vendor '%s' does not match current page domain '%s'. "
+                "Injection blocked.",
+                approved_vendor, actual_domain,
+            )
+            return f"domain_mismatch:{actual_domain}"
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Headless browser launch helper
+    # ------------------------------------------------------------------
+
+    async def _launch_headless(self, pw):
+        """Launch a headless Chromium browser via Playwright.
+
+        Returns a (browser, page) tuple. The caller is responsible for
+        closing the browser when done.
+        """
+        browser = await pw.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+        return browser, page
 
     # ------------------------------------------------------------------
     # Public API
@@ -342,73 +454,10 @@ class PopBrowserInjector:
         result = {"card_filled": False, "billing_filled": False, "blocked_reason": ""}
 
         # TOCTOU guard: verify the current page domain matches the approved vendor
-        # Uses KNOWN_VENDOR_DOMAINS suffix matching (same as guardrail layer 1) to
-        # prevent subdomain-spoofing bypasses like "wikipedia.attacker.com".
-        if page_url and approved_vendor:
-            from urllib.parse import urlparse
-            import re
-            from pop_pay.engine.guardrails import KNOWN_VENDOR_DOMAINS
-            actual_domain = urlparse(page_url).netloc.lower().removeprefix("www.")
-            vendor_lower = approved_vendor.lower()
-            vendor_tokens = set(re.split(r'[\s\-_./]+', vendor_lower)) - {''}
-
-            domain_ok = False
-            vendor_is_known = False
-            # First: check against KNOWN_VENDOR_DOMAINS using strict suffix matching.
-            # A known vendor MUST match a registered known domain — the fallback is
-            # skipped, so "wikipedia.attacker.com" never satisfies vendor="wikipedia".
-            for known_vendor, known_domains in KNOWN_VENDOR_DOMAINS.items():
-                if known_vendor in vendor_tokens or known_vendor == vendor_lower:
-                    vendor_is_known = True
-                    if any(actual_domain == d or actual_domain.endswith("." + d)
-                           for d in known_domains):
-                        domain_ok = True
-                    break
-            # Fallback ONLY for vendors absent from KNOWN_VENDOR_DOMAINS.
-            # Checks vendor tokens against domain labels (split on "." only, not hyphens).
-            # Also checks if any vendor token is a substring of a compound domain label
-            # (e.g. "maker" inside "makerfaire.com") to handle concatenated brand names.
-            if not domain_ok and not vendor_is_known:
-                _common_tlds = {'com', 'org', 'net', 'io', 'co', 'uk', 'jp', 'de', 'fr'}
-                domain_labels = set(actual_domain.split(".")) - _common_tlds
-                domain_ok = (
-                    bool(vendor_tokens.intersection(domain_labels))  # exact label match
-                    or any(                                           # token inside compound label
-                        tok in label
-                        for tok in vendor_tokens
-                        for label in domain_labels
-                        if len(tok) >= 4  # ignore short tokens ("of", "the", "bay", etc.)
-                    )
-                )
-
-            # Payment processor passthrough: vendor intent was already approved by the
-            # policy gate. If checkout redirected to a known third-party processor
-            # (e.g. zohosecurepay.com for Maker Faire), allow it.
-            if not domain_ok:
-                import json as _json
-                from pop_pay.engine.guardrails import KNOWN_PAYMENT_PROCESSORS
-                _user_processors = set(_json.loads(
-                    os.getenv("POP_ALLOWED_PAYMENT_PROCESSORS", "[]")
-                ))
-                _all_processors = KNOWN_PAYMENT_PROCESSORS | _user_processors
-                if any(actual_domain == p or actual_domain.endswith("." + p)
-                       for p in _all_processors):
-                    domain_ok = True
-                    logger.info(
-                        "PopBrowserInjector: domain '%s' is a known payment processor "
-                        "— TOCTOU passed for vendor '%s'.",
-                        actual_domain, approved_vendor,
-                    )
-
-            if not domain_ok:
-                logger.warning(
-                    "PopBrowserInjector: TOCTOU domain mismatch — "
-                    "approved vendor '%s' does not match current page domain '%s'. "
-                    "Injection blocked.",
-                    approved_vendor, actual_domain,
-                )
-                result["blocked_reason"] = f"domain_mismatch:{actual_domain}"
-                return result
+        blocked = self._verify_domain_toctou(page_url, approved_vendor)
+        if blocked:
+            result["blocked_reason"] = blocked
+            return result
 
         try:
             from playwright.async_api import async_playwright
@@ -439,32 +488,47 @@ class PopBrowserInjector:
         browser = None
         try:
             async with async_playwright() as pw:
-                # Connect to the *existing* browser — does NOT launch a new instance
-                browser = await pw.chromium.connect_over_cdp(cdp_url)
+                if self.headless:
+                    browser, page = await self._launch_headless(pw)
+                    if page_url:
+                        await page.goto(page_url, wait_until="domcontentloaded", timeout=15000)
+                        await page.wait_for_timeout(3000)
+                else:
+                    # Connect to the *existing* browser — does NOT launch a new instance
+                    browser = await pw.chromium.connect_over_cdp(cdp_url)
 
-                # Search all contexts (not just contexts[0]) — Playwright MCP may
-                # create pages in a non-default context when sharing the same Chrome.
-                page = self._find_best_page(browser)
+                    # Search all contexts (not just contexts[0]) — Playwright MCP may
+                    # create pages in a non-default context when sharing the same Chrome.
+                    page = self._find_best_page(browser)
 
-                if page is None and page_url:
-                    # Auto-bridge: agent navigated via a different browser instance;
-                    # open the same URL in the CDP browser so injection can proceed.
-                    logger.info(
-                        "PopBrowserInjector: no open pages in CDP browser — "
-                        "opening page_url: %s", page_url,
-                    )
-                    page = await self._open_url_in_browser(browser, page_url)
+                    if page is None and page_url:
+                        # Auto-bridge: agent navigated via a different browser instance;
+                        # open the same URL in the CDP browser so injection can proceed.
+                        logger.info(
+                            "PopBrowserInjector: no open pages in CDP browser — "
+                            "opening page_url: %s", page_url,
+                        )
+                        page = await self._open_url_in_browser(browser, page_url)
 
-                if page is None:
-                    logger.warning(
-                        "PopBrowserInjector: no open pages found via CDP at %s. "
-                        "Ensure pop-launch is running and Playwright MCP is configured "
-                        "with --cdp-endpoint %s, or pass page_url to request_virtual_card.",
-                        cdp_url, cdp_url,
-                    )
-                    return result
+                    if page is None:
+                        logger.warning(
+                            "PopBrowserInjector: no open pages found via CDP at %s. "
+                            "Ensure pop-launch is running and Playwright MCP is configured "
+                            "with --cdp-endpoint %s, or pass page_url to request_virtual_card.",
+                            cdp_url, cdp_url,
+                        )
+                        return result
 
-                await page.bring_to_front()
+                    await page.bring_to_front()
+
+                # POP_BLACKOUT_MODE: "before" | "after" | "off"
+                #   before = mask fields before injection (more secure, agent never sees card)
+                #   after  = mask fields after injection (good for demos, shows card briefly)
+                #   off    = no masking
+                blackout_mode = os.getenv("POP_BLACKOUT_MODE", "after").lower()
+
+                if blackout_mode == "before":
+                    await self._enable_blackout(page)
 
                 result["card_filled"] = await self._fill_across_frames(
                     page, card_number, expiry, cvv
@@ -475,10 +539,8 @@ class PopBrowserInjector:
                         page, billing_info
                     )
 
-                # Mask card fields AFTER injection — CSS hides displayed values
-                # but keeps actual form values intact for submission.
-                # Masking persists until page navigation (no auto-disable).
-                await self._enable_blackout(page)
+                if blackout_mode == "after":
+                    await self._enable_blackout(page)
 
                 return result
 
@@ -726,7 +788,10 @@ class PopBrowserInjector:
         email      = billing_info.get("email", "")
         phone      = billing_info.get("phone", "")
         country    = billing_info.get("country", "")
-        state      = billing_info.get("state", "")
+        state_raw  = billing_info.get("state", "")
+        # Auto-expand US state abbreviations (e.g. "CA" → "California")
+        # so dropdowns with full state names match correctly.
+        state      = US_STATE_CODES.get(state_raw.upper(), state_raw) if len(state_raw) == 2 else state_raw
         city       = billing_info.get("city", "")
 
         if await self._fill_field(f, FIRST_NAME_SELECTORS, first_name, "first name"):
@@ -784,61 +849,11 @@ class PopBrowserInjector:
         """
         result = {"billing_filled": False, "blocked_reason": ""}
 
-        # TOCTOU guard — same logic as inject_payment_info
-        if page_url and approved_vendor:
-            from urllib.parse import urlparse
-            import re
-            from pop_pay.engine.guardrails import KNOWN_VENDOR_DOMAINS
-            actual_domain = urlparse(page_url).netloc.lower().removeprefix("www.")
-            vendor_lower = approved_vendor.lower()
-            vendor_tokens = set(re.split(r'[\s\-_./]+', vendor_lower)) - {''}
-
-            domain_ok = False
-            vendor_is_known = False
-            for known_vendor, known_domains in KNOWN_VENDOR_DOMAINS.items():
-                if known_vendor in vendor_tokens or known_vendor == vendor_lower:
-                    vendor_is_known = True
-                    if any(actual_domain == d or actual_domain.endswith("." + d)
-                           for d in known_domains):
-                        domain_ok = True
-                    break
-            if not domain_ok and not vendor_is_known:
-                _common_tlds = {'com', 'org', 'net', 'io', 'co', 'uk', 'jp', 'de', 'fr'}
-                domain_labels = set(actual_domain.split(".")) - _common_tlds
-                domain_ok = (
-                    bool(vendor_tokens.intersection(domain_labels))
-                    or any(
-                        tok in label
-                        for tok in vendor_tokens
-                        for label in domain_labels
-                        if len(tok) >= 4
-                    )
-                )
-
-            if not domain_ok:
-                import json as _json
-                from pop_pay.engine.guardrails import KNOWN_PAYMENT_PROCESSORS
-                _user_processors = set(_json.loads(
-                    os.getenv("POP_ALLOWED_PAYMENT_PROCESSORS", "[]")
-                ))
-                _all_processors = KNOWN_PAYMENT_PROCESSORS | _user_processors
-                if any(actual_domain == p or actual_domain.endswith("." + p)
-                       for p in _all_processors):
-                    domain_ok = True
-                    logger.info(
-                        "PopBrowserInjector: domain '%s' is a known payment processor "
-                        "— TOCTOU passed for vendor '%s'.",
-                        actual_domain, approved_vendor,
-                    )
-
-            if not domain_ok:
-                logger.warning(
-                    "PopBrowserInjector: TOCTOU domain mismatch (billing) — "
-                    "approved vendor '%s' does not match current page domain '%s'.",
-                    approved_vendor, actual_domain,
-                )
-                result["blocked_reason"] = f"domain_mismatch:{actual_domain}"
-                return result
+        # TOCTOU guard — uses shared method
+        blocked = self._verify_domain_toctou(page_url, approved_vendor)
+        if blocked:
+            result["blocked_reason"] = blocked
+            return result
 
         try:
             from playwright.async_api import async_playwright
@@ -862,15 +877,21 @@ class PopBrowserInjector:
         browser = None
         try:
             async with async_playwright() as pw:
-                browser = await pw.chromium.connect_over_cdp(cdp_url)
-                page = self._find_best_page(browser)
+                if self.headless:
+                    browser, page = await self._launch_headless(pw)
+                    if page_url:
+                        await page.goto(page_url, wait_until="domcontentloaded", timeout=15000)
+                        await page.wait_for_timeout(3000)
+                else:
+                    browser = await pw.chromium.connect_over_cdp(cdp_url)
+                    page = self._find_best_page(browser)
 
-                if page is None and page_url:
-                    page = await self._open_url_in_browser(browser, page_url)
+                    if page is None and page_url:
+                        page = await self._open_url_in_browser(browser, page_url)
 
-                if page is None:
-                    logger.warning("PopBrowserInjector: no open pages found for billing injection.")
-                    return result
+                    if page is None:
+                        logger.warning("PopBrowserInjector: no open pages found for billing injection.")
+                        return result
 
                 await page.bring_to_front()
 

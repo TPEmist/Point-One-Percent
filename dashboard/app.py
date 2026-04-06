@@ -12,9 +12,53 @@ st.title("The Vault - AgentPay Dashboard")
 # Database path - located in project root
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "pop_state.db"))
 
+
+def _ensure_settings_table(conn: sqlite3.Connection) -> None:
+    """Create the dashboard_settings table if it does not exist."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS dashboard_settings "
+        "(key TEXT PRIMARY KEY, value TEXT)"
+    )
+    conn.commit()
+
+
+def _read_setting(key: str, default: str = "") -> str:
+    """Read a setting from the dashboard_settings table."""
+    if not os.path.exists(DB_PATH):
+        return default
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            _ensure_settings_table(conn)
+            row = conn.execute(
+                "SELECT value FROM dashboard_settings WHERE key = ?", (key,)
+            ).fetchone()
+            return row[0] if row else default
+    except Exception:
+        return default
+
+
+def _write_setting(key: str, value: str) -> None:
+    """Write a setting to the dashboard_settings table (upsert)."""
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_settings_table(conn)
+        conn.execute(
+            "INSERT INTO dashboard_settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+        conn.commit()
+
+
+# Read persisted slider value (default 500)
+_saved_budget = int(_read_setting("max_daily_budget", "500"))
+
 # Sidebar
 st.sidebar.header("Vault Settings")
-max_daily_budget = st.sidebar.slider("Max Daily Budget ($)", 10, 2000, 500)
+max_daily_budget = st.sidebar.slider("Max Daily Budget ($)", 10, 2000, _saved_budget)
+
+# Write back to DB whenever the slider value changes
+if max_daily_budget != _saved_budget:
+    _write_setting("max_daily_budget", str(max_daily_budget))
 
 if st.sidebar.button("Refresh Data"):
     st.rerun()

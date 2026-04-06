@@ -1,0 +1,32 @@
+# Minimal Dockerfile for running pop-pay in headless mode.
+#
+# Build:
+#   docker build -f examples/Dockerfile.headless -t pop-pay-headless .
+#
+# Run:
+#   docker run --rm \
+#     -e POP_ALLOWED_CATEGORIES='["aws","cloudflare"]' \
+#     -e POP_MAX_PER_TX=100 \
+#     -e POP_MAX_DAILY=500 \
+#     -e POP_AUTO_INJECT=true \
+#     pop-pay-headless
+
+FROM python:3.11-slim
+
+# Install system dependencies required by Playwright Chromium
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+    libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 \
+    libpango-1.0-0 libcairo2 libasound2 libxshmfence1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install pop-pay with browser extras
+COPY . .
+RUN pip install --no-cache-dir ".[browser]" && \
+    python -m playwright install chromium
+
+# Default: run the MCP server in headless mode
+ENV POP_AUTO_INJECT=true
+CMD ["python", "-m", "pop_pay.mcp_server"]

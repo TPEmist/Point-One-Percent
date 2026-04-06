@@ -112,6 +112,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="After Chrome is ready, print the claude mcp add commands to run",
     )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Launch a headless Chromium via Playwright instead of connecting to an existing browser. "
+             "Useful for Docker/CI environments where no display is available.",
+    )
 
     args = parser.parse_args(argv)
 

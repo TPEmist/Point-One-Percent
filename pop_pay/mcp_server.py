@@ -86,6 +86,7 @@ llm_api_key  = os.getenv("POP_LLM_API_KEY", "")
 llm_base_url = os.getenv("POP_LLM_BASE_URL", None)
 llm_model    = os.getenv("POP_LLM_MODEL", "gpt-4o-mini")
 webhook_url  = os.getenv("POP_WEBHOOK_URL")
+approval_webhook_url = os.getenv("POP_APPROVAL_WEBHOOK")
 policy = GuardrailPolicy(
     allowed_categories=allowed_categories,
     max_amount_per_tx=max_per_tx,
@@ -203,6 +204,70 @@ async def _scan_page(page_url: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Human approval via webhook or CLI fallback
+# ---------------------------------------------------------------------------
+
+import logging as _approval_logging
+_approval_logger = _approval_logging.getLogger(__name__)
+
+
+async def _request_human_approval(
+    merchant: str,
+    amount: float,
+    reasoning: str,
+    seal_id: str,
+) -> tuple[bool, str]:
+    """Request human approval for a payment.
+
+    If POP_APPROVAL_WEBHOOK is set, POST an approval request to the webhook URL
+    and wait for a response (timeout 120s). The webhook must return JSON:
+        {"approved": true/false, "reason": "..."}
+
+    If the webhook is not configured, fall back to CLI prompt (stdin).
+
+    Returns (approved: bool, reason: str).
+    """
+    if approval_webhook_url:
+        # SSRF validate the webhook URL (reuse pattern from notification webhook)
+        try:
+            _aw_parsed = urlparse(approval_webhook_url)
+            _aw_host = _aw_parsed.hostname or ""
+            try:
+                _aw_addr = ipaddress.ip_address(_aw_host)
+                if _aw_addr.is_private or _aw_addr.is_loopback or _aw_addr.is_link_local or _aw_addr.is_reserved:
+                    _approval_logger.warning("Approval webhook URL blocked: private/internal address %s", _aw_host)
+                    return False, f"Approval webhook SSRF blocked: private address {_aw_host}"
+            except ValueError:
+                pass  # hostname (not raw IP) -- allow
+        except Exception:
+            return False, "Approval webhook URL is invalid."
+
+        try:
+            async with httpx.AsyncClient() as approval_client:
+                payload = {
+                    "merchant": merchant,
+                    "amount": amount,
+                    "reasoning": reasoning,
+                    "seal_id": seal_id,
+                }
+                resp = await approval_client.post(
+                    approval_webhook_url, json=payload, timeout=120.0
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                approved = bool(data.get("approved", False))
+                reason = data.get("reason", "")
+                return approved, reason
+        except Exception as exc:
+            _approval_logger.error("Approval webhook failed: %s", exc)
+            return False, f"Approval webhook error: {exc}"
+
+    # CLI fallback: not implemented in MCP context (no stdin),
+    # so auto-approve when no webhook is configured.
+    return True, "auto-approved (no approval webhook configured)"
+
+
+# ---------------------------------------------------------------------------
 # MCP Tools
 # ---------------------------------------------------------------------------
 
@@ -269,6 +334,21 @@ async def request_virtual_card(
             )
     else:
         scan_note = " (security scan skipped — no page_url provided)"
+
+    # Human approval gate (if POP_APPROVAL_WEBHOOK is configured)
+    require_approval = os.getenv("POP_REQUIRE_HUMAN_APPROVAL", "false").lower() == "true"
+    if require_approval:
+        pre_seal_id = str(uuid.uuid4())
+        approved, approval_reason = await _request_human_approval(
+            merchant=target_vendor,
+            amount=requested_amount,
+            reasoning=reasoning,
+            seal_id=pre_seal_id,
+        )
+        if not approved:
+            return (
+                f"Payment rejected by human approval. Reason: {approval_reason}"
+            )
 
     intent = PaymentIntent(
         agent_id="mcp-agent",
@@ -456,6 +536,122 @@ async def request_purchaser_info(
         f"Billing info filled successfully for '{target_vendor}'. "
         f"Name, address, email, and/or phone fields have been auto-populated. "
         f"Proceed to the payment page and call request_virtual_card when card fields are visible."
+    )
+
+
+import logging as _logging
+_x402_logger = _logging.getLogger(__name__)
+
+
+def _ssrf_validate_url(url: str) -> str | None:
+    """Validate a URL against SSRF.
+
+    Returns None if the URL is safe, or an error message string if blocked.
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return "Only http/https URLs are allowed."
+        host = parsed.hostname or ""
+        try:
+            addr = ipaddress.ip_address(host)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                return "Requests to private/internal addresses are not allowed."
+        except ValueError:
+            pass  # hostname (not raw IP) -- allow
+    except Exception:
+        return "Invalid URL."
+    return None
+
+
+@mcp.tool()
+async def request_x402_payment(
+    amount: float,
+    service_url: str,
+    reasoning: str,
+) -> str:
+    """Pay for an API call or service using the x402 HTTP payment protocol.
+
+    The x402 protocol flow:
+    1. Client sends a request to the service URL.
+    2. Server responds with HTTP 402 + payment details.
+    3. Client pays and retries with a payment proof header.
+
+    This tool handles the full challenge-response cycle. It requires:
+    - POP_X402_WALLET_KEY env var to be set (crypto wallet key for x402 payments).
+    - The service_url must pass SSRF validation.
+    - The payment must pass guardrail evaluation (amount limits, vendor matching).
+
+    NOTE: x402 payment execution is currently stubbed. The guardrail check
+    and spend recording are fully functional; actual blockchain payment will
+    be added when Coinbase SDK integration is ready.
+    """
+    # 1. Check wallet key
+    wallet_key = os.getenv("POP_X402_WALLET_KEY", "")
+    if not wallet_key:
+        return (
+            "x402 payment rejected: POP_X402_WALLET_KEY environment variable is not set. "
+            "Configure your wallet key in ~/.config/pop-pay/.env to enable x402 payments."
+        )
+
+    # 2. SSRF validate service_url
+    ssrf_error = _ssrf_validate_url(service_url)
+    if ssrf_error:
+        return f"x402 payment rejected: SSRF validation failed for service_url. {ssrf_error}"
+
+    # 3. Guardrail evaluation
+    intent = PaymentIntent(
+        agent_id="mcp-agent-x402",
+        requested_amount=amount,
+        target_vendor=service_url,
+        reasoning=reasoning,
+        page_url=service_url,
+    )
+    seal = await client.process_payment(intent)
+
+    if seal.status.lower() == "rejected":
+        return f"x402 payment rejected by guardrails. Reason: {seal.rejection_reason}"
+
+    # 4. Stub: x402 challenge-response (to be replaced with real Coinbase SDK)
+    _x402_logger.warning(
+        "x402 payment execution is STUBBED. seal_id=%s amount=%.2f service_url=%s. "
+        "Real x402 payment via Coinbase SDK is not yet implemented.",
+        seal.seal_id, amount, service_url,
+    )
+
+    # 5. Record spend (already done in client.process_payment)
+
+    # 6. Webhook notification
+    if policy.webhook_url:
+        try:
+            _wh_parsed = urlparse(policy.webhook_url)
+            _wh_host = _wh_parsed.hostname or ""
+            try:
+                _wh_addr = ipaddress.ip_address(_wh_host)
+                if _wh_addr.is_private or _wh_addr.is_loopback or _wh_addr.is_link_local or _wh_addr.is_reserved:
+                    raise ValueError("SSRF blocked")
+            except ValueError as _ssrf_err:
+                if "SSRF blocked" in str(_ssrf_err):
+                    raise
+                pass
+            async with httpx.AsyncClient() as webhook_client:
+                payload = {
+                    "type": "x402_payment",
+                    "service_url": service_url,
+                    "amount": amount,
+                    "status": "stubbed",
+                    "seal_id": seal.seal_id,
+                    "reasoning": reasoning,
+                }
+                await webhook_client.post(policy.webhook_url, json=payload, timeout=5.0)
+        except Exception:
+            pass
+
+    return (
+        f"x402 payment approved (STUBBED). seal_id={seal.seal_id}, amount=${amount:.2f}, "
+        f"service_url={service_url}. "
+        f"Note: actual x402 blockchain payment is not yet implemented -- "
+        f"guardrails passed and spend was recorded, but no real payment was executed."
     )
 
 

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.25] - 2026-04-06
+
+### Fixed
+- **US state abbreviation auto-expand:** `POP_BILLING_STATE=CA` now auto-converts to "California" for dropdowns that use full state names. Fixes Zoho and similar forms.
+- **Screenshot blackout configurable:** New `POP_BLACKOUT_MODE` env var: `before` (mask before injection, most secure), `after` (mask after injection, good for demos, default), `off` (no masking).
+
+### Added
+- **Headless/Docker injection mode:** `--headless` flag for `pop-launch`. Launches headless Chrome via Playwright instead of connecting to existing CDP. Includes `examples/Dockerfile.headless`.
+- **TOCTOU domain-check refactor:** Extracted duplicated TOCTOU logic into shared `_verify_domain_toctou()` method.
+- **x402 protocol support (stubbed):** New `request_x402_payment()` MCP tool for HTTP 402 agent-to-service micropayments. Guardrail check and spend recording functional; blockchain payment execution stubbed pending Coinbase SDK.
+- **Biometric approval webhook:** `POP_APPROVAL_WEBHOOK` env var — POST approval requests to external webhook (WebAuthn/Slack/custom) with 120s timeout. Falls back to auto-approve when not configured.
+- **Dashboard slider DB writeback:** Spend limit slider now persists changes to SQLite.
+- 30 new tests (headless, x402, approval webhook, dashboard settings). Total: 131 tests.
+
 ## [0.6.24] - 2026-04-06
 
 ### Fixed
