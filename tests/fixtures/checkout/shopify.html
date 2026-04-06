@@ -1,0 +1,21 @@
+<!-- Shopify Checkout: card fields in hosted payment iframe -->
+<html><body>
+<form data-shopify-checkout>
+  <input autocomplete="given-name" name="firstName" placeholder="First name">
+  <input autocomplete="family-name" name="lastName" placeholder="Last name">
+  <input autocomplete="street-address" name="address1" placeholder="Address">
+  <input autocomplete="address-level2" name="city" placeholder="City">
+  <select autocomplete="address-level1" name="province"><option value="CA">California</option></select>
+  <input autocomplete="postal-code" name="zip" placeholder="Zip code">
+  <select autocomplete="country" name="country"><option value="US">United States</option></select>
+  <input autocomplete="email" name="email" type="email" placeholder="Email">
+  <input autocomplete="tel" name="phone" type="tel" placeholder="Phone">
+  <!-- Payment fields in iframe -->
+  <iframe id="card-fields-iframe" src="about:blank"></iframe>
+</form>
+<template id="shopify-card-inner">
+  <input name="cardnumber" autocomplete="cc-number" placeholder="Card number">
+  <input name="cc-exp" autocomplete="cc-exp" placeholder="Expiration date (MM / YY)">
+  <input name="cvc" autocomplete="cc-csc" placeholder="Security code">
+</template>
+</body></html>

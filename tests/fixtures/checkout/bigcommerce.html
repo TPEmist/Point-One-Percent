@@ -1,0 +1,27 @@
+<!-- BigCommerce: standard form with card fields -->
+<html><body>
+<form id="checkout-payment-form">
+  <input name="first_name" id="firstNameInput" autocomplete="given-name" placeholder="First Name">
+  <input name="last_name" id="lastNameInput" autocomplete="family-name" placeholder="Last Name">
+  <input name="address1" id="addressLine1Input" autocomplete="address-line1" placeholder="Address">
+  <input name="city" id="cityInput" autocomplete="address-level2" placeholder="City">
+  <select name="state" id="provinceInput" autocomplete="address-level1"><option value="CA">California</option></select>
+  <input name="postal_code" id="postCodeInput" autocomplete="postal-code" placeholder="Postal Code">
+  <select name="country" id="countryInput" autocomplete="country"><option value="US">United States</option></select>
+  <input name="email" type="email" autocomplete="email" placeholder="Email">
+  <input name="phone" type="tel" autocomplete="tel" placeholder="Phone">
+  <!-- Card fields via iframe -->
+  <iframe id="bigpaypay-ccNumber" src="about:blank"></iframe>
+  <iframe id="bigpaypay-ccExpiry" src="about:blank"></iframe>
+  <iframe id="bigpaypay-ccCvv" src="about:blank"></iframe>
+</form>
+<template id="bc-card">
+  <input id="card-number" name="card_number" autocomplete="cc-number" placeholder="Card Number">
+</template>
+<template id="bc-expiry">
+  <input id="card-expiry" name="card_expiry" autocomplete="cc-exp" placeholder="MM / YY">
+</template>
+<template id="bc-cvv">
+  <input id="card-cvv" name="security_code" autocomplete="cc-csc" placeholder="CVV">
+</template>
+</body></html>

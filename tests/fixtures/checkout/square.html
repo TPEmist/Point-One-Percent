@@ -1,0 +1,13 @@
+<!-- Square Web Payments SDK: single iframe for all card fields -->
+<html><body>
+<form id="payment-form">
+  <div id="card-container">
+    <iframe id="sq-card-iframe" src="about:blank"></iframe>
+  </div>
+</form>
+<template id="sq-inner">
+  <input name="cardnumber" autocomplete="cc-number" placeholder="Card number">
+  <input name="cc-exp" autocomplete="cc-exp" placeholder="MM/YY">
+  <input name="cvc" autocomplete="cc-csc" placeholder="CVV">
+</template>
+</body></html>

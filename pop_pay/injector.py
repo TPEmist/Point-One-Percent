@@ -466,20 +466,19 @@ class PopBrowserInjector:
 
                 await page.bring_to_front()
 
-                # Enable screenshot blackout before filling sensitive info
-                await self._enable_blackout(page)
-                try:
-                    result["card_filled"] = await self._fill_across_frames(
-                        page, card_number, expiry, cvv
+                result["card_filled"] = await self._fill_across_frames(
+                    page, card_number, expiry, cvv
+                )
+
+                if has_billing:
+                    result["billing_filled"] = await self._fill_billing_fields(
+                        page, billing_info
                     )
 
-                    if has_billing:
-                        result["billing_filled"] = await self._fill_billing_fields(
-                            page, billing_info
-                        )
-                finally:
-                    # Restore page visibility after injection
-                    await self._disable_blackout(page)
+                # Mask card fields AFTER injection — CSS hides displayed values
+                # but keeps actual form values intact for submission.
+                # Masking persists until page navigation (no auto-disable).
+                await self._enable_blackout(page)
 
                 return result
 
@@ -597,21 +596,42 @@ class PopBrowserInjector:
 
         return True
 
+    @staticmethod
+    async def _dispatch_events(locator) -> None:
+        """
+        Dispatch change, input, and blur events on an element to ensure
+        framework state updates (React, Angular, Vue, Zoho, etc.).
+        Playwright's select_option() triggers some events, but custom
+        frameworks often need explicit dispatching.
+        """
+        try:
+            await locator.evaluate("""el => {
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new Event('blur', { bubbles: true }));
+            }""")
+        except Exception:
+            pass
+
     async def _select_option(self, locator, value: str) -> bool:
         """
         Select a <select> option by value, label, or fuzzy label match.
         Tries in order: exact value → exact label → case-insensitive partial match.
+        After selection, dispatches change/input/blur events to ensure
+        framework state updates (React, Zoho, etc.).
         Returns True if an option was selected.
         """
         # Exact value match
         try:
             await locator.select_option(value=value)
+            await self._dispatch_events(locator)
             return True
         except Exception:
             pass
         # Exact label match
         try:
             await locator.select_option(label=value)
+            await self._dispatch_events(locator)
             return True
         except Exception:
             pass
@@ -625,13 +645,37 @@ class PopBrowserInjector:
             for opt in options:
                 if value_lower in (opt["text"].lower(), opt["value"].lower()):
                     await locator.select_option(value=opt["value"])
+                    await self._dispatch_events(locator)
                     return True
             # Partial: user value contained in option text, or option text in user value
             for opt in options:
                 opt_text = opt["text"].lower()
                 if value_lower in opt_text or opt_text in value_lower:
                     await locator.select_option(value=opt["value"])
+                    await self._dispatch_events(locator)
                     return True
+        except Exception:
+            pass
+        # Last resort: JavaScript-based setValue + dispatch for non-standard <select>
+        try:
+            set_result = await locator.evaluate("""(el, val) => {
+                const valLower = val.toLowerCase();
+                for (const opt of el.options) {
+                    if (opt.value.toLowerCase() === valLower ||
+                        opt.text.trim().toLowerCase() === valLower ||
+                        opt.text.trim().toLowerCase().includes(valLower) ||
+                        valLower.includes(opt.text.trim().toLowerCase())) {
+                        el.value = opt.value;
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                        el.dispatchEvent(new Event('blur', { bubbles: true }));
+                        return true;
+                    }
+                }
+                return false;
+            }""", value)
+            if set_result:
+                return True
         except Exception:
             pass
         return False
@@ -655,6 +699,7 @@ class PopBrowserInjector:
                 filled = await self._select_option(locator, value)
             else:
                 await locator.fill(value)
+                await self._dispatch_events(locator)
                 filled = True
             if filled:
                 logger.info("PopBrowserInjector: %s injected.", field_name)
@@ -829,13 +874,7 @@ class PopBrowserInjector:
 
                 await page.bring_to_front()
 
-                # Enable screenshot blackout
-                await self._enable_blackout(page)
-                try:
-                    result["billing_filled"] = await self._fill_billing_fields(page, billing_info)
-                finally:
-                    # Restore page visibility
-                    await self._disable_blackout(page)
+                result["billing_filled"] = await self._fill_billing_fields(page, billing_info)
 
                 return result
 
@@ -850,36 +889,61 @@ class PopBrowserInjector:
                     pass
 
     @staticmethod 
-    async def _enable_blackout(page): 
-        """ 
-        Inject a full-screen black overlay to hide payment fields from screenshots. 
-        Also disables pointer events to prevent interaction during injection. 
-        """ 
-        try: 
-            await page.evaluate("""() => { 
-                if (document.getElementById("pop-pay-blackout")) return; 
-                const overlay = document.createElement("div"); 
-                overlay.id = "pop-pay-blackout"; 
-                overlay.style.cssText = "position:fixed; top:0; left:0; bottom:0; right:0; background:#000; z-index:999999;"; 
-                document.documentElement.appendChild(overlay); 
-                document.documentElement.style.pointerEvents = "none"; 
-            }""") 
-        except Exception as e: 
-            logger.debug("PopBrowserInjector: failed to enable blackout: %s", e) 
- 
-    @staticmethod 
-    async def _disable_blackout(page): 
-        """ 
-        Remove the blackout overlay and restore pointer events. 
-        """ 
-        try: 
-            await page.evaluate("""() => { 
-                const overlay = document.getElementById("pop-pay-blackout"); 
-                if (overlay) overlay.remove(); 
-                document.documentElement.style.pointerEvents = ""; 
-            }""") 
-        except Exception as e: 
-            logger.debug("PopBrowserInjector: failed to disable blackout: %s", e) 
+    async def _enable_blackout(page):
+        """
+        Mask card fields across ALL frames (including iframes) after injection.
+
+        Instead of a main-frame overlay (which can't cover cross-origin iframes),
+        this injects CSS into every frame that hides the text content of card
+        input fields using -webkit-text-security and color:transparent.
+
+        The actual form values remain intact for submission — only the visual
+        display is hidden, defeating screenshot-based exfiltration.
+        """
+        try:
+            for frame in page.frames:
+                try:
+                    await frame.evaluate("""() => {
+                        const style = document.createElement('style');
+                        style.id = 'pop-pay-blackout';
+                        style.textContent = `
+                            input[autocomplete*="cc-"],
+                            input[name*="card"], input[name*="Card"],
+                            input[name*="expir"], input[name*="cvc"], input[name*="cvv"],
+                            input[data-elements-stable-field-name],
+                            input.__PrivateStripeElement,
+                            input[name="cardnumber"], input[name="cc-exp"],
+                            input[name="security_code"], input[name="card_number"],
+                            input[name="card_expiry"], input[name="card_cvc"] {
+                                -webkit-text-security: disc !important;
+                                color: transparent !important;
+                                text-shadow: 0 0 8px rgba(0,0,0,0.5) !important;
+                            }
+                        `;
+                        document.head.appendChild(style);
+                    }""")
+                except Exception:
+                    pass  # cross-origin frames may reject — that's OK
+        except Exception as e:
+            logger.debug("PopBrowserInjector: failed to enable blackout: %s", e)
+
+    @staticmethod
+    async def _disable_blackout(page):
+        """
+        Remove the field-level masking CSS from all frames.
+        Called after the user clicks submit, or if injection fails.
+        """
+        try:
+            for frame in page.frames:
+                try:
+                    await frame.evaluate("""() => {
+                        const style = document.getElementById('pop-pay-blackout');
+                        if (style) style.remove();
+                    }""")
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.debug("PopBrowserInjector: failed to disable blackout: %s", e)
  
     @staticmethod
     async def _find_visible_locator(frame, selectors: list):

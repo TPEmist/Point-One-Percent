@@ -578,6 +578,8 @@ pop-launch --print-mcp
 openclaw mcp add pop-pay -- /path/to/venv/bin/python -m pop_pay.mcp_server
 ```
 
+> 執行 `pop-launch --print-mcp` 可取得包含正確 Python 路徑的完整指令。
+
 或直接加入 `~/.openclaw/mcp_servers.json`：
 
 ```json

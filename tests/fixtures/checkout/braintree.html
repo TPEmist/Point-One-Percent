@@ -1,0 +1,17 @@
+<!-- Braintree Hosted Fields: separate iframes per field -->
+<html><body>
+<form id="braintree-form">
+  <iframe id="braintree-hosted-field-number" src="about:blank"></iframe>
+  <iframe id="braintree-hosted-field-expirationDate" src="about:blank"></iframe>
+  <iframe id="braintree-hosted-field-cvv" src="about:blank"></iframe>
+</form>
+<template id="bt-card">
+  <input name="credit-card-number" autocomplete="cc-number" placeholder="Credit Card Number">
+</template>
+<template id="bt-expiry">
+  <input name="expiration" autocomplete="cc-exp" placeholder="Expiration Date">
+</template>
+<template id="bt-cvv">
+  <input name="cvv" autocomplete="cc-csc" placeholder="CVV">
+</template>
+</body></html>

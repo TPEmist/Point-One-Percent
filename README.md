@@ -4,7 +4,7 @@
     </picture>
 </p>
 
-# Point One Percent - Agent Pay
+# Point One Percent — pop-pay
 
 <p align="center">
   <a href="https://glama.ai/mcp/servers/TPEmist/Point-One-Percent"><img src="https://glama.ai/mcp/servers/TPEmist/Point-One-Percent/badges/score.svg" alt="Glama MCP score"></a>
@@ -12,46 +12,56 @@
   <a href="https://www.producthunt.com/products/project-aegis?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-point-one-percent-ai-agent-pay" target="_blank" rel="noopener noreferrer"><img alt="Point One Percent on Product Hunt" width="140" height="30" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1105745&theme=neutral&t=1774937261413"></a>
 </p>
 
-> it only takes 0.1% of Hallucination to drain 100% of your wallet.
+### The runtime security layer for AI agent commerce.
+
+<p align="center"><i>it only takes <b>0.1%</b> of Hallucination to drain <b>100%</b> of your wallet.</i></p>
+
+> Your card never enters the agent's context. One hallucinated prompt can't drain a wallet it can't see.
 
 <p align="center">
   <img src="assets/runtime_demo.gif" alt="Point One Percent — live CDP injection demo" width="800">
 </p>
 
-Point One Percent is a payment guardrail and one-time flow protocol specifically designed for Agentic AI (e.g., OpenClaw, NemoClaw, Claude Code, OpenHands). It enables agents to handle financial transactions safely without risking unlimited exposure of human-controlled credit cards.
+pop-pay is an open-source (MIT) runtime security layer that protects AI agents during online purchases. It works with OpenClaw, NemoClaw, Claude Code, OpenHands, and any MCP-compatible framework.
 
-## 1. The Problem
-When Agentic AI encounters a paywall (e.g., domain registration, API credits, compute scaling) during an automated workflow, it is often forced to stop and wait for human intervention. However, providing a physical credit card directly to an agent introduces a "trust crisis": hallucinations or infinite loops could lead to the card being drained.
+## Architecture: Five Security Primitives
 
-## 2. Dual Architecture
+| Primitive | What it does |
+|-----------|-------------|
+| **Context Isolation Layer** | Card credentials are injected directly into the browser DOM via CDP — they never enter the agent's process or LLM context window. Prompt injection can't steal what the agent doesn't have. |
+| **Intent Verification Engine** | Hybrid keyword + LLM guardrail evaluates whether a purchase *should* happen — not just whether it *can*. [95% accuracy on 20-scenario benchmark.](./docs/THREAT_MODEL.md) |
+| **Human Trust Anchor** | Configurable human-in-the-loop approval for high-value or unrecognized transactions. |
+| **Zero-Knowledge Card Surface** | Agent only sees masked tokens (`****-4242`). Real data is stored in an AES-256-GCM encrypted vault. |
+| **Ephemeral Authorization Scope** | Each payment approval is single-use with TOCTOU domain guard — an approved session can't be redirected to a malicious merchant. |
 
-Point One Percent is designed with a "Dual Architecture" vision to scale from open-source local experiments to enterprise-grade AI production pipelines.
+> See [THREAT_MODEL.md](./docs/THREAT_MODEL.md) for the full STRIDE analysis and [COMPLIANCE_FAQ.md](./docs/COMPLIANCE_FAQ.md) for enterprise compliance details.
 
-### 1. Hacker Edition (BYOC + DOM Injection)
-Built for open-source frameworks like OpenClaw and NemoClaw. The agent **never** receives the true credit card number—it only sees a masked version (\`****-4242\`). When the agent successfully navigates to a checkout paywall, the `PopBrowserInjector` attaches to the active Chromium browser via the Chrome DevTools Protocol (CDP). It precisely traverses all cross-origin iframes (like Stripe Elements) and injects the real credentials deep into the DOM form elements, delivering **100% protection against prompt injection** or hallucination-driven extractions. Bring Your Own Card (BYOC) locally with absolute peace of mind.
+## Guardrail Benchmark
 
-### 2. Enterprise Edition (Stripe Issuing)
-The "North Star" for the broader Agentic SaaS ecosystem. Proving that Point One Percent has the enterprise-grade extensibility required for the real world, it seamlessly connects to verified financial infrastructure. Perfect for platforms building "Agentic Visa" services that programmatically issue real, single-use, burner virtual credit cards (VCCs) via the Stripe API for cloud-hosted AI fleets.
+| Layer | Score | Notes |
+|-------|-------|-------|
+| Keyword only | 14/20 (70%) | Fast, zero-cost, catches obvious violations |
+| **Hybrid (Keyword + LLM)** | **19/20 (95%)** | LLM resolves 5 of 6 keyword failures |
+
+| Feature | AgentPayy | AgentWallet | Prava | **pop-pay** |
+|---------|-----------|-------------|-------|------------|
+| Enforcement | Mock alert() | Rule-based | Spending limits | **Semantic validation** |
+| Intent check | None | Agent-provided text | None | **Context-aware LLM** |
+| Injection-proof | No | No | No | **Yes** |
+
+## Two Deployment Modes
+
+### BYOC — Bring Your Own Card (Local)
+The agent **never** receives the true card number — it only sees `****-4242`. When checkout is reached, the Context Isolation Layer attaches via CDP, traverses all cross-origin iframes (Stripe Elements, Adyen, etc.), and injects credentials directly into the DOM. Runs entirely on your machine — no SaaS, no login, no external account.
+
+### Enterprise — Stripe Issuing
+For cloud-hosted AI fleets: programmatically issue single-use virtual cards via Stripe API, with per-agent budgets and full audit trails.
 
 ---
 
-## 3. Ecosystem Position: Point One Percent + Browser Agents = Unstoppable
+## Ecosystem Position
 
-Modern agentic workflows require two complementary capabilities. Point One Percent does one, and does it exceptionally well.
-
-### What Point One Percent Is — and Isn't
-
-**Point One Percent is the agent's financial brain and safe vault.** It is responsible for:
-- Evaluating whether a purchase *should* happen (semantic guardrails)
-- Enforcing hard budget limits (daily cap, per-transaction cap)
-- Issuing one-time virtual cards so real credentials are never exposed
-- Maintaining a full audit trail of every payment attempt
-
-**Point One Percent does NOT:**
-- Navigate websites or interact with DOM elements
-- Solve CAPTCHAs or bypass bot-detection systems
-
-That's the browser agent's job.
+pop-pay is the agent's **Policy Enforcement Point** — it evaluates, approves, and injects. It does NOT navigate websites or solve CAPTCHAs — that's the browser agent's job.
 
 ### The Handshake: How Point One Percent and Browser Agents Work Together
 

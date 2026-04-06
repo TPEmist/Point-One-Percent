@@ -166,9 +166,6 @@ async def _scan_page(page_url: str) -> dict:
 
             if urlparse(str(response.url)).netloc != urlparse(page_url).netloc:
                 flags.append("unexpected_redirect")
-
-            if not page_url.startswith("https://"):
-                flags.append("ssl_anomaly")
     except Exception as e:
         flags.append("ssl_anomaly")
         return {"flags": flags, "snapshot_id": snapshot_id, "safe": False, "error": f"Error fetching page: {e}"}
@@ -286,6 +283,18 @@ async def request_virtual_card(
     # so operators can monitor attack attempts and guardrail triggers.
     if policy.webhook_url:
         try:
+            # SSRF guard: block webhook to private/internal addresses
+            _wh_parsed = urlparse(policy.webhook_url)
+            _wh_host = _wh_parsed.hostname or ""
+            try:
+                _wh_addr = ipaddress.ip_address(_wh_host)
+                if _wh_addr.is_private or _wh_addr.is_loopback or _wh_addr.is_link_local or _wh_addr.is_reserved:
+                    logger.warning("Webhook URL blocked: private/internal address %s", _wh_host)
+                    raise ValueError("SSRF blocked")
+            except ValueError as _ssrf_err:
+                if "SSRF blocked" in str(_ssrf_err):
+                    raise
+                pass  # hostname (not raw IP) — allow
             async with httpx.AsyncClient() as webhook_client:
                 payload = {
                     "merchant": intent.target_vendor,

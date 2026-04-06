@@ -1,0 +1,19 @@
+<!-- Adyen Drop-in: card fields in iframes with Adyen-specific selectors -->
+<html><body>
+<form id="adyen-checkout">
+  <div class="adyen-checkout__card__form">
+    <iframe class="js-iframe" title="Iframe for card number" src="about:blank"></iframe>
+    <iframe class="js-iframe" title="Iframe for expiry date" src="about:blank"></iframe>
+    <iframe class="js-iframe" title="Iframe for security code" src="about:blank"></iframe>
+  </div>
+</form>
+<template id="adyen-card-number">
+  <input id="encryptedCardNumber" name="card_number" autocomplete="cc-number" placeholder="Card number">
+</template>
+<template id="adyen-expiry">
+  <input id="encryptedExpiryDate" name="expiry" autocomplete="cc-exp" placeholder="MM/YY">
+</template>
+<template id="adyen-cvv">
+  <input id="encryptedSecurityCode" name="cvc" autocomplete="cc-csc" placeholder="CVC">
+</template>
+</body></html>

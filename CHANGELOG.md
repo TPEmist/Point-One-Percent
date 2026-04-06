@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.24] - 2026-04-06
+
+### Fixed
+- **Select/dropdown injection (Bug Fix):** Added `_dispatch_events()` to fire `input`, `change`, and `blur` events after filling `<select>` and `<input>` fields. Fixes frameworks (Zoho, React, Angular, Vue) that rely on DOM events for state updates. Also added JavaScript-based fallback for non-standard `<select>` elements.
+- **Screenshot protection rewrite (Bug Fix):** Replaced broken full-screen overlay approach with per-field CSS masking (`-webkit-text-security: disc`, `color: transparent`) injected into ALL frames including cross-origin iframes. Masking persists after injection (no auto-remove), defeating screenshot-based card exfiltration.
+- **Webhook SSRF guard:** Added private IP / loopback / link-local / reserved address validation to webhook URL dispatch, matching the existing `_scan_page()` SSRF protections.
+- **Dead code removal:** Removed unreachable `ssl_anomaly` check in `_scan_page()` (line 170) — already guarded by scheme check at line 149.
+
+### Added
+- **CDP regression test suite:** 26 new tests covering 10 checkout stacks (Stripe Elements, Shopify, WooCommerce, Magento, BigCommerce, Adyen, PayPal, Braintree, Square, custom HTML) with HTML fixture files. Total: 101 tests.
+- **Threat Model:** `docs/THREAT_MODEL.md` — STRIDE analysis, 5 security primitives, 10 attack scenarios with mitigations.
+- **Compliance FAQ:** `docs/COMPLIANCE_FAQ.md` — PCI DSS scope argument, data flow diagram, SOC 2 roadmap, GDPR note.
+- **README rewrite:** Security-first positioning ("The runtime security layer for AI agent commerce"), guardrail benchmark section, architecture table with 5 security primitives.
+
+### Changed
+- **zh-TW Integration Guide:** Synced missing `pop-launch --print-mcp` line with English version.
+
 ## [0.6.21] - 2026-04-05
 
 ### Fixed

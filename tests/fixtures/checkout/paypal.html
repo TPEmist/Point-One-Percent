@@ -1,0 +1,21 @@
+<!-- PayPal Hosted Fields: card fields in PayPal-hosted iframes -->
+<html><body>
+<form id="paypal-payment-form">
+  <div id="card-number" class="paypal-hosted-field"></div>
+  <div id="expiration-date" class="paypal-hosted-field"></div>
+  <div id="cvv" class="paypal-hosted-field"></div>
+  <!-- PayPal renders iframes inside these divs -->
+  <iframe name="braintree-hosted-field-number" src="about:blank"></iframe>
+  <iframe name="braintree-hosted-field-expirationDate" src="about:blank"></iframe>
+  <iframe name="braintree-hosted-field-cvv" src="about:blank"></iframe>
+</form>
+<template id="paypal-card">
+  <input name="credit-card-number" autocomplete="cc-number" placeholder="Card Number">
+</template>
+<template id="paypal-expiry">
+  <input name="expiration" autocomplete="cc-exp" placeholder="MM/YY">
+</template>
+<template id="paypal-cvv">
+  <input name="cvv" autocomplete="cc-csc" placeholder="CVV">
+</template>
+</body></html>

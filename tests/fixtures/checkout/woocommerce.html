@@ -1,0 +1,21 @@
+<!-- WooCommerce: direct form fields (Stripe gateway variant) -->
+<html><body>
+<form name="checkout" class="woocommerce-checkout">
+  <input name="billing_first_name" id="billing_first_name" autocomplete="given-name" placeholder="First name">
+  <input name="billing_last_name" id="billing_last_name" autocomplete="family-name" placeholder="Last name">
+  <input name="billing_address_1" id="billing_address_1" autocomplete="address-line1" placeholder="Street address">
+  <input name="billing_city" id="billing_city" autocomplete="address-level2" placeholder="City">
+  <select name="billing_state" id="billing_state" autocomplete="address-level1"><option value="CA">California</option></select>
+  <input name="billing_postcode" id="billing_postcode" autocomplete="postal-code" placeholder="Postcode / ZIP">
+  <select name="billing_country" id="billing_country" autocomplete="country"><option value="US">United States</option></select>
+  <input name="billing_email" id="billing_email" type="email" autocomplete="email" placeholder="Email address">
+  <input name="billing_phone" id="billing_phone" type="tel" autocomplete="tel" placeholder="Phone">
+  <!-- Stripe gateway iframe -->
+  <iframe name="__stripe_checkout" src="about:blank"></iframe>
+</form>
+<template id="woo-stripe-inner">
+  <input data-elements-stable-field-name="cardNumber" placeholder="Card number">
+  <input data-elements-stable-field-name="cardExpiry" placeholder="MM / YY">
+  <input data-elements-stable-field-name="cardCvc" placeholder="CVC">
+</template>
+</body></html>

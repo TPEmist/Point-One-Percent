@@ -1,0 +1,17 @@
+<!-- Stripe Elements: card fields inside cross-origin iframes -->
+<html><body>
+<form id="payment-form">
+  <div id="card-element">
+    <!-- Stripe mounts an iframe here; simulated below -->
+  </div>
+  <iframe name="__privateStripeFrame" src="about:blank">
+    <!-- In real Stripe, this is cross-origin to js.stripe.com -->
+  </iframe>
+</form>
+<!-- Stripe Elements inner iframe DOM (simulated): -->
+<template id="stripe-inner">
+  <input data-elements-stable-field-name="cardNumber" autocomplete="cc-number" placeholder="Card number">
+  <input data-elements-stable-field-name="cardExpiry" autocomplete="cc-exp" placeholder="MM / YY">
+  <input data-elements-stable-field-name="cardCvc" autocomplete="cc-csc" placeholder="CVC">
+</template>
+</body></html>
