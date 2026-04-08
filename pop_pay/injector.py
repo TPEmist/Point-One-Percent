@@ -630,7 +630,82 @@ class PopBrowserInjector:
                 logger.debug("Frame %s skipped: %s", frame.url, frame_exc)
                 continue
 
+        # Shadow DOM piercing fallback: search for shadow roots in main page
+        if not card_filled:
+            if await self._fill_card_in_shadow_dom(page, card_number, expiry, cvv):
+                card_filled = True
+
         return card_filled
+
+    async def _fill_card_in_shadow_dom(
+        self, page, card_number: str, expiry: str, cvv: str
+    ) -> bool:
+        """
+        Search for card fields inside Shadow DOM trees using recursive
+        queryShadowAll and fill them via native setters + event dispatch.
+        """
+        try:
+            card_selectors = ", ".join(CARD_NUMBER_SELECTORS)
+            expiry_selectors = ", ".join(EXPIRY_SELECTORS)
+            cvv_selectors = ", ".join(CVV_SELECTORS)
+
+            script = """
+            ([cardNumber, expiry, cvv, cardSels, expSels, cvvSels]) => {
+                function queryShadowFirst(root, selectors) {
+                    const selectorList = selectors.split(', ');
+                    for (const sel of selectorList) {
+                        try {
+                            const found = root.querySelector(sel);
+                            if (found) return found;
+                        } catch (e) {}
+                    }
+                    const allElements = root.querySelectorAll('*');
+                    for (const el of allElements) {
+                        if (el.shadowRoot) {
+                            const found = queryShadowFirst(el.shadowRoot, selectors);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                }
+
+                function fillField(root, selectors, value) {
+                    const el = queryShadowFirst(root, selectors);
+                    if (!el) return false;
+                    try {
+                        const nativeSetter = Object.getOwnPropertyDescriptor(
+                            HTMLInputElement.prototype, 'value'
+                        ).set;
+                        if (nativeSetter) {
+                            nativeSetter.call(el, value);
+                        } else {
+                            el.value = value;
+                        }
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                        el.dispatchEvent(new Event('blur', { bubbles: true }));
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+
+                const cardFilled = fillField(document, cardSels, cardNumber);
+                if (cardFilled) {
+                    fillField(document, expSels, expiry);
+                    fillField(document, cvvSels, cvv);
+                }
+                return cardFilled;
+            }
+            """
+            result = await page.evaluate(script, [
+                card_number, expiry, cvv,
+                card_selectors, expiry_selectors, cvv_selectors
+            ])
+            return bool(result)
+        except Exception as e:
+            logger.debug("PopBrowserInjector: Shadow DOM piercing failed: %s", e)
+            return False
 
     async def _fill_in_frame(
         self, frame, card_number: str, expiry: str, cvv: str

@@ -436,6 +436,63 @@ class TestCrossFrameInjection:
         assert call_count["iframe"] == 1
 
 
+class TestShadowDomPiercing:
+    """Test Shadow DOM piercing fallback when frame traversal fails."""
+
+    @pytest.mark.asyncio
+    async def test_shadow_dom_fallback_called_when_frames_fail(self):
+        """Verify _fill_card_in_shadow_dom is called if _fill_in_frame returns False."""
+        injector = _make_injector()
+        page = MagicMock()
+        frame = MagicMock()
+        frame.url = "https://example.com"
+        page.frames = [frame]
+
+        with patch.object(injector, "_fill_in_frame", return_value=False):
+            with patch.object(
+                injector, "_fill_card_in_shadow_dom", AsyncMock(return_value=True)
+            ) as mock_shadow:
+                result = await injector._fill_across_frames(
+                    page, "4242424242424242", "12/28", "123"
+                )
+
+                assert result is True
+                mock_shadow.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_shadow_dom_not_called_when_frames_succeed(self):
+        """Verify Shadow DOM piercing is NOT called if a frame already filled the card."""
+        injector = _make_injector()
+        page = MagicMock()
+        frame = MagicMock()
+        frame.url = "https://example.com"
+        page.frames = [frame]
+
+        with patch.object(injector, "_fill_in_frame", return_value=True):
+            with patch.object(
+                injector, "_fill_card_in_shadow_dom", AsyncMock()
+            ) as mock_shadow:
+                result = await injector._fill_across_frames(
+                    page, "4242424242424242", "12/28", "123"
+                )
+
+                assert result is True
+                mock_shadow.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_shadow_dom_returns_false_when_no_fields(self):
+        """Verify _fill_card_in_shadow_dom returns False if page.evaluate returns False."""
+        injector = _make_injector()
+        page = MagicMock()
+        # Mock page.evaluate to simulate no fields found in shadow DOM
+        page.evaluate = AsyncMock(return_value=False)
+
+        result = await injector._fill_card_in_shadow_dom(
+            page, "4242424242424242", "12/28", "123"
+        )
+        assert result is False
+
+
 # ---------------------------------------------------------------------------
 # Compatibility matrix documentation
 # ---------------------------------------------------------------------------
