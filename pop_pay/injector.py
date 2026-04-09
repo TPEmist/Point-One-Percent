@@ -1107,24 +1107,6 @@ class PopBrowserInjector:
                     pass  # cross-origin frames may reject — that's OK
         except Exception as e:
             logger.debug("PopBrowserInjector: failed to enable blackout: %s", e)
-
-    @staticmethod
-    async def _disable_blackout(page):
-        """
-        Remove the field-level masking CSS from all frames.
-        Called after the user clicks submit, or if injection fails.
-        """
-        try:
-            for frame in page.frames:
-                try:
-                    await frame.evaluate("""() => {
-                        const style = document.getElementById('pop-pay-blackout');
-                        if (style) style.remove();
-                    }""")
-                except Exception:
-                    pass
-        except Exception as e:
-            logger.debug("PopBrowserInjector: failed to disable blackout: %s", e)
  
     @staticmethod
     async def _find_visible_locator(frame, selectors: list):

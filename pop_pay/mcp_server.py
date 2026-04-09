@@ -500,6 +500,38 @@ async def request_purchaser_info(
 
     This tool does NOT issue a card, does NOT charge anything, and does NOT affect your budget.
     """
+    # -------------------------------------------------------------------
+    # P1: Automatic security scan (runs whenever page_url is provided)
+    # -------------------------------------------------------------------
+    if page_url:
+        # Check cache first (reuse recent scan within 5 minutes)
+        cached = snapshot_cache.get(page_url)
+        if cached and datetime.now() - cached["timestamp"] < timedelta(minutes=5):
+            scan_result = {
+                "flags": cached["flags"],
+                "snapshot_id": cached["snapshot_id"],
+                "safe": "hidden_instructions_detected" not in cached["flags"],
+                "error": None,
+            }
+        else:
+            scan_result = await _scan_page(page_url)
+
+        if scan_result.get("error"):
+            # Network/URL error — treat as unsafe; do not inject info
+            return (
+                f"Billing info rejected. Security scan failed: {scan_result['error']} "
+                f"Snapshot ID: {scan_result['snapshot_id']}. "
+                f"Fix the URL or skip page_url if the page has no associated URL."
+            )
+
+        if not scan_result["safe"]:
+            return (
+                f"Billing info rejected. Security scan detected hidden prompt injection. "
+                f"Snapshot ID: {scan_result['snapshot_id']}. "
+                f"Flags: {scan_result['flags']}. "
+                f"Do not retry this."
+            )
+
     if injector is None:
         return (
             "Billing info injection is not available. "
