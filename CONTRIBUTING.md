@@ -125,3 +125,15 @@ The `PopBrowserInjector` uses Playwright's `connectOverCDP` for cross-origin ifr
 - A brief note in the PR description confirming you verified the domain is controlled by the payment processor, not a reseller or affiliate
 
 If you have an idea for a feature or a bug fix, please open an issue or submit a Pull Request!
+
+## Open Discussion: masked_card Encryption
+
+Currently, `masked_card` values (e.g., `****-4242`) are encrypted at rest in SQLite using AES-256-GCM. The dashboard API decrypts them before display.
+
+We're seeking community input on whether this encryption is necessary:
+- **Current state**: Masked card values like `****-4242` are encrypted in `pop_state.db` and decrypted on read
+- **Argument for keeping**: Defense-in-depth — even masked data gets encryption
+- **Argument for removing**: `****-4242` is not PCI-sensitive data (PCI DSS explicitly allows truncated PAN display). Encryption adds complexity and caused a dashboard display bug where raw ciphertext was shown instead of the masked value
+- **Note**: Full card numbers are never stored in the database — only the masked form
+
+If you have opinions on this, please open an issue or discussion.

@@ -125,6 +125,26 @@ class DashboardRequestHandler(http.server.BaseHTTPRequestHandler):
         conn.close()
         
         seals = [dict(row) for row in rows]
+
+        # Decrypt masked_card for display
+        import hashlib, hmac, socket, base64
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        try:
+            enc_key = hmac.new(b"pop-pay-state-salt", socket.gethostname().encode(), hashlib.sha256).digest()
+            for seal in seals:
+                mc = seal.get("masked_card")
+                if mc:
+                    try:
+                        data = base64.b64decode(mc)
+                        if len(data) >= 28:
+                            nonce, tag, ct = data[:12], data[12:28], data[28:]
+                            aesgcm = AESGCM(enc_key)
+                            seal["masked_card"] = aesgcm.decrypt(nonce, tag + ct, None).decode("utf-8")
+                    except Exception:
+                        pass  # Already plaintext or corrupt
+        except Exception:
+            pass  # cryptography not installed — show raw
+
         self._set_headers()
         self.wfile.write(json.dumps(seals).encode())
 
@@ -196,7 +216,7 @@ def main():
     parser.add_argument("--db", type=str, default=DEFAULT_DB_PATH, help=f"Path to SQLite database (default: {DEFAULT_DB_PATH})")
     parser.add_argument("--no-open", action="store_true", help="Do not open the browser automatically")
     
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     
     server = create_server(args.port, args.db)
     url = f"http://127.0.0.1:{args.port}"
