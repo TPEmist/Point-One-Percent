@@ -226,14 +226,14 @@ class PopDashboardServer(http.server.HTTPServer):
         super().__init__(server_address, RequestHandlerClass)
         self.db_path = db_path
 
-def create_server(port=3210, db_path=DEFAULT_DB_PATH):
+def create_server(port=8860, db_path=DEFAULT_DB_PATH):
     init_db(db_path)
     server = PopDashboardServer(("127.0.0.1", port), DashboardRequestHandler, db_path)
     return server
 
 def main():
     parser = argparse.ArgumentParser(description="Pop-Pay Dashboard Server")
-    parser.add_argument("--port", type=int, default=3210, help="Port to run the server on (default: 3210)")
+    parser.add_argument("--port", type=int, default=8860, help="Port to run the server on (default: 8860)")
     parser.add_argument("--db", type=str, default=DEFAULT_DB_PATH, help=f"Path to SQLite database (default: {DEFAULT_DB_PATH})")
     parser.add_argument("--no-open", action="store_true", help="Do not open the browser automatically")
     
