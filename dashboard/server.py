@@ -167,10 +167,21 @@ class DashboardRequestHandler(http.server.BaseHTTPRequestHandler):
             "event_type TEXT NOT NULL, "
             "vendor TEXT, "
             "reasoning TEXT, "
+            "outcome TEXT, "
+            "rejection_reason TEXT, "
             "timestamp TEXT NOT NULL)"
         )
+        # Defensive: if the dashboard opens a legacy DB before the tracker has
+        # run its migration, add the new columns here so the SELECT below
+        # doesn't blow up. Idempotent via PRAGMA check.
+        cursor.execute("PRAGMA table_info(audit_log)")
+        existing_cols = {row[1] for row in cursor.fetchall()}
+        if "outcome" not in existing_cols:
+            cursor.execute("ALTER TABLE audit_log ADD COLUMN outcome TEXT")
+        if "rejection_reason" not in existing_cols:
+            cursor.execute("ALTER TABLE audit_log ADD COLUMN rejection_reason TEXT")
         cursor.execute(
-            "SELECT id, event_type, vendor, reasoning, timestamp "
+            "SELECT id, event_type, vendor, reasoning, outcome, rejection_reason, timestamp "
             "FROM audit_log ORDER BY timestamp DESC, id DESC LIMIT ?",
             (limit,),
         )

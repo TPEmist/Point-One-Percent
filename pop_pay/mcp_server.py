@@ -518,27 +518,37 @@ async def request_purchaser_info(
 
     This tool does NOT issue a card, does NOT charge anything, and does NOT affect your budget.
     """
-    # Audit log: every request_purchaser_info call is recorded, regardless of
-    # outcome, so operators can trace what vendors an agent tried to pay.
-    # This does NOT block the call — rejection (if any) happens later in
-    # request_virtual_card via process_payment.
-    try:
-        client.state_tracker.record_audit_event(
-            "purchaser_info_requested",
-            vendor=target_vendor,
-            reasoning=reasoning,
-        )
-    except Exception:
-        pass  # Audit failure must never block the main flow.
+    # POP_PURCHASER_INFO_BLOCKING (default "true") — when explicitly set to a
+    # non-"true" string, the vendor allowlist check becomes non-blocking: the
+    # request continues to the injector but is recorded in audit_log with
+    # outcome='blocked_bypassed' so operators still see it. Other security
+    # gates (scan, domain TOCTOU) are NEVER bypassed by this flag.
+    purchaser_info_blocking = os.getenv("POP_PURCHASER_INFO_BLOCKING", "true").lower() == "true"
+
+    def _audit(outcome: str, rejection_reason_text: str | None = None) -> None:
+        """Helper: record this request in audit_log with the resolved outcome.
+        Non-blocking on failure."""
+        try:
+            client.state_tracker.record_audit_event(
+                "purchaser_info_requested",
+                vendor=target_vendor,
+                reasoning=reasoning,
+                outcome=outcome,
+                rejection_reason=rejection_reason_text,
+            )
+        except Exception:
+            pass  # Audit failure must never block the main flow.
 
     # -------------------------------------------------------------------
     # P1: Automatic security scan (runs whenever page_url is provided)
     # -------------------------------------------------------------------
     _, error_msg = await scan_and_validate(page_url, snapshot_cache, prefix="Billing info", item_name="page", retry_suffix="")
     if error_msg:
+        _audit("rejected_security", error_msg)
         return error_msg
 
     if injector is None:
+        _audit("error_injector", "injector unavailable (POP_AUTO_INJECT disabled or CDP not reachable)")
         return (
             "Billing info injection is not available. "
             "Ensure POP_AUTO_INJECT=true in ~/.config/pop-pay/.env and restart the MCP server."
@@ -551,10 +561,20 @@ async def request_purchaser_info(
     page_domain = urlparse(page_url).netloc.lower().removeprefix("www.") if page_url else ""
     vendor_allowed = _match_vendor(target_vendor, allowed_categories, page_domain=page_domain)
     if not vendor_allowed:
-        return (
-            f"Vendor '{target_vendor}' is not in your allowed categories. "
-            f"Billing info will not be filled for unapproved vendors. "
-            f"Update POP_ALLOWED_CATEGORIES in ~/.config/pop-pay/.env to add it."
+        if purchaser_info_blocking:
+            _audit(
+                "rejected_vendor",
+                f"vendor '{target_vendor}' not in POP_ALLOWED_CATEGORIES",
+            )
+            return (
+                f"Vendor '{target_vendor}' is not in your allowed categories. "
+                f"Billing info will not be filled for unapproved vendors. "
+                f"Update POP_ALLOWED_CATEGORIES in ~/.config/pop-pay/.env to add it."
+            )
+        # Bypass path: record the bypass but continue to the injector.
+        _audit(
+            "blocked_bypassed",
+            f"vendor '{target_vendor}' not in allowlist (bypassed by POP_PURCHASER_INFO_BLOCKING=false)",
         )
 
     result = await injector.inject_billing_only(
@@ -568,6 +588,7 @@ async def request_purchaser_info(
 
     if blocked_reason.startswith("domain_mismatch:"):
         actual = blocked_reason.split(":", 1)[1]
+        _audit("rejected_security", f"domain_mismatch: page='{actual}' vs vendor='{target_vendor}'")
         return (
             f"Blocked. Current page domain '{actual}' does not match "
             f"approved vendor '{target_vendor}'. "
@@ -575,12 +596,14 @@ async def request_purchaser_info(
         )
 
     if not billing_filled:
+        _audit("error_fields", "billing fields not found on page")
         return (
             "Could not find billing fields on the current page. "
             "Make sure you are on the billing/contact info page before calling this tool. "
             "If using Playwright MCP, pass the current page URL as page_url."
         )
 
+    _audit("approved")
     return (
         f"Billing info filled successfully for '{target_vendor}'. "
         f"Name, address, email, and/or phone fields have been auto-populated. "

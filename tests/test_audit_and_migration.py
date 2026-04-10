@@ -111,7 +111,7 @@ def test_audit_log_table_created_on_init():
     t = PopStateTracker(":memory:")
     cols = t.conn.execute("PRAGMA table_info(audit_log)").fetchall()
     names = {c[1] for c in cols}
-    assert names == {"id", "event_type", "vendor", "reasoning", "timestamp"}
+    assert names == {"id", "event_type", "vendor", "reasoning", "outcome", "rejection_reason", "timestamp"}
     t.close()
 
 
@@ -143,6 +143,113 @@ def test_get_audit_events_respects_limit():
     events = t.get_audit_events(limit=2)
     assert len(events) == 2
     t.close()
+
+
+# ---------------------------------------------------------------------------
+# v0.8.2 — audit_log outcome + rejection_reason
+# ---------------------------------------------------------------------------
+
+def test_record_audit_event_persists_outcome_and_reason():
+    t = PopStateTracker(":memory:")
+    t.record_audit_event(
+        "purchaser_info_requested",
+        vendor="aws",
+        reasoning="buying compute",
+        outcome="approved",
+    )
+    t.record_audit_event(
+        "purchaser_info_requested",
+        vendor="shady.example.com",
+        reasoning="n/a",
+        outcome="rejected_vendor",
+        rejection_reason="vendor 'shady.example.com' not in POP_ALLOWED_CATEGORIES",
+    )
+    events = t.get_audit_events()
+    assert len(events) == 2
+    # Most recent first
+    assert events[0]["outcome"] == "rejected_vendor"
+    assert events[0]["rejection_reason"] == "vendor 'shady.example.com' not in POP_ALLOWED_CATEGORIES"
+    assert events[1]["outcome"] == "approved"
+    assert events[1]["rejection_reason"] is None
+    t.close()
+
+
+def test_legacy_audit_log_migration_adds_outcome_and_rejection_reason_columns():
+    """v0.8.0/v0.8.1 DBs have audit_log without outcome/rejection_reason columns.
+    Opening such a DB with v0.8.2 must add the columns and default legacy rows
+    to outcome='unknown'."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = os.path.join(tmp, "legacy_audit.db")
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "CREATE TABLE audit_log ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "event_type TEXT NOT NULL, "
+            "vendor TEXT, "
+            "reasoning TEXT, "
+            "timestamp TEXT NOT NULL)"
+        )
+        conn.execute(
+            "INSERT INTO audit_log (event_type, vendor, reasoning, timestamp) "
+            "VALUES (?, ?, ?, ?)",
+            ("purchaser_info_requested", "aws", "legacy row", "2026-04-01T12:00:00Z"),
+        )
+        conn.commit()
+        conn.close()
+
+        t = PopStateTracker(db_path)
+        cols = {r[1] for r in t.conn.execute("PRAGMA table_info(audit_log)").fetchall()}
+        assert "outcome" in cols
+        assert "rejection_reason" in cols
+
+        events = t.get_audit_events()
+        assert len(events) == 1
+        assert events[0]["vendor"] == "aws"
+        assert events[0]["outcome"] == "unknown"
+        assert events[0]["rejection_reason"] is None
+        t.close()
+
+
+def test_audit_log_migration_idempotent():
+    """Running migration twice must not double-apply or clobber data."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = os.path.join(tmp, "legacy_audit.db")
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "CREATE TABLE audit_log ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "event_type TEXT NOT NULL, "
+            "vendor TEXT, "
+            "reasoning TEXT, "
+            "timestamp TEXT NOT NULL)"
+        )
+        conn.execute(
+            "INSERT INTO audit_log (event_type, vendor, reasoning, timestamp) "
+            "VALUES (?, ?, ?, ?)",
+            ("purchaser_info_requested", "aws", "legacy", "2026-04-01T12:00:00Z"),
+        )
+        conn.commit()
+        conn.close()
+
+        t1 = PopStateTracker(db_path)
+        # Write a new row with an outcome AFTER migration
+        t1.record_audit_event(
+            "purchaser_info_requested",
+            vendor="github",
+            outcome="approved",
+        )
+        t1.close()
+
+        # Second open — migration should be a no-op; existing data preserved.
+        t2 = PopStateTracker(db_path)
+        events = t2.get_audit_events()
+        assert len(events) == 2
+        outcomes = {e["vendor"]: e["outcome"] for e in events}
+        assert outcomes == {"aws": "unknown", "github": "approved"}
+        # Column list still exactly the expected set
+        cols = {r[1] for r in t2.conn.execute("PRAGMA table_info(audit_log)").fetchall()}
+        assert cols == {"id", "event_type", "vendor", "reasoning", "outcome", "rejection_reason", "timestamp"}
+        t2.close()
 
 
 # ---------------------------------------------------------------------------

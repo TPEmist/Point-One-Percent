@@ -88,6 +88,8 @@ class PopStateTracker:
                 event_type TEXT NOT NULL,
                 vendor TEXT,
                 reasoning TEXT,
+                outcome TEXT,
+                rejection_reason TEXT,
                 timestamp TEXT NOT NULL
             )
         """)
@@ -146,6 +148,20 @@ class PopStateTracker:
             "UPDATE issued_seals SET timestamp = REPLACE(timestamp, ' ', 'T') || 'Z' "
             "WHERE timestamp NOT LIKE '%T%' AND timestamp IS NOT NULL AND timestamp != ''"
         )
+        self.conn.commit()
+
+        # v0.8.2 — audit_log: add outcome + rejection_reason columns if missing.
+        # Idempotent: we check PRAGMA before ALTERing. Legacy rows (from v0.8.0/v0.8.1
+        # before this column existed) get outcome='unknown' so the dashboard can
+        # surface them without breaking. rejection_reason is left NULL for legacy
+        # rows since we genuinely have no reason data for them.
+        cursor.execute("PRAGMA table_info(audit_log)")
+        audit_columns = {row[1] for row in cursor.fetchall()}
+        if "outcome" not in audit_columns:
+            cursor.execute("ALTER TABLE audit_log ADD COLUMN outcome TEXT")
+            cursor.execute("UPDATE audit_log SET outcome = 'unknown' WHERE outcome IS NULL")
+        if "rejection_reason" not in audit_columns:
+            cursor.execute("ALTER TABLE audit_log ADD COLUMN rejection_reason TEXT")
         self.conn.commit()
 
     def _utc_now_iso(self) -> str:
@@ -208,25 +224,43 @@ class PopStateTracker:
         cursor.execute("UPDATE issued_seals SET status = ? WHERE seal_id = ?", (status, seal_id))
         self.conn.commit()
 
-    def record_audit_event(self, event_type: str, vendor: str = None, reasoning: str = None) -> int:
-        """Insert an audit log entry. Returns the new row id."""
+    def record_audit_event(
+        self,
+        event_type: str,
+        vendor: str = None,
+        reasoning: str = None,
+        outcome: str = None,
+        rejection_reason: str = None,
+    ) -> int:
+        """Insert an audit log entry. Returns the new row id.
+
+        outcome values used by mcp_server.request_purchaser_info:
+          - "approved"          — request passed all checks and was fulfilled
+          - "rejected_vendor"   — vendor not in allowlist (and blocking enabled)
+          - "rejected_security" — security scan blocked the request
+          - "blocked_bypassed"  — vendor block bypassed via POP_PURCHASER_INFO_BLOCKING=false
+          - "error_injector"    — injector unavailable (CDP down, lazy-init failed)
+          - "error_fields"      — billing fields not found on page
+          - "unknown"           — legacy row from before v0.8.2 (pre-outcome column)
+        """
         timestamp = self._utc_now_iso()
         cursor = self.conn.cursor()
         cursor.execute("""
-            INSERT INTO audit_log (event_type, vendor, reasoning, timestamp)
-            VALUES (?, ?, ?, ?)
-        """, (event_type, vendor, reasoning, timestamp))
+            INSERT INTO audit_log (event_type, vendor, reasoning, outcome, rejection_reason, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (event_type, vendor, reasoning, outcome, rejection_reason, timestamp))
         self.conn.commit()
         return cursor.lastrowid
 
     def get_audit_events(self, limit: int = 100) -> list[dict]:
         """Return audit log entries, most recent first, as list of dicts with keys
-        id, event_type, vendor, reasoning, timestamp."""
+        id, event_type, vendor, reasoning, outcome, rejection_reason, timestamp."""
         try:
             self.conn.row_factory = sqlite3.Row
             cursor = self.conn.cursor()
             cursor.execute(
-                "SELECT id, event_type, vendor, reasoning, timestamp FROM audit_log ORDER BY timestamp DESC, id DESC LIMIT ?",
+                "SELECT id, event_type, vendor, reasoning, outcome, rejection_reason, timestamp "
+                "FROM audit_log ORDER BY timestamp DESC, id DESC LIMIT ?",
                 (limit,)
             )
             rows = cursor.fetchall()
