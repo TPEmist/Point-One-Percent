@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.3] - 2026-04-10
+
+### Changed
+- **MCP marketplace metadata**: added `[tool.mcp]` namespace `io.github.100xpercent/pop-pay`, keywords, and project URLs to pyproject.toml for marketplace discovery.
+- **GitHub org migration**: updated README badges and `[project.urls]` from `TPEmist/pop-pay-python` to `100xPercent/pop-pay-python`.
+
 ## [0.8.2] - 2026-04-10
 
 ### Fixed

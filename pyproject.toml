@@ -4,17 +4,26 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pop-pay"
-version = "0.8.2"
+version = "0.8.3"
 description = "Point One Percent - Semantic Payment Guardrail for AI Agents. it only takes 0.1% of Hallucination to drain 100% of your wallet."
 authors = [{name="Point One Percent Team"}]
 dynamic = ["readme"]
 license = {text="MIT"}
 requires-python = ">=3.10"
+keywords = ["mcp", "mcp-server", "model-context-protocol", "ai-agent", "payment", "security", "guardrail", "virtual-card", "cdp", "browser-automation", "checkout", "prompt-injection"]
 dependencies = [
     "cryptography>=46.0.5",
     "pydantic",
     "python-dotenv",
 ]
+
+[project.urls]
+Homepage = "https://github.com/100xPercent/pop-pay-python"
+Repository = "https://github.com/100xPercent/pop-pay-python"
+Issues = "https://github.com/100xPercent/pop-pay-python/issues"
+
+[tool.mcp]
+mcpName = "io.github.100xpercent/pop-pay"
 
 [project.optional-dependencies]
 llm = ["openai", "tenacity>=9.1.4"]
