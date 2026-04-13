@@ -62,7 +62,7 @@ pip install "pop-pay[all]"             # everything
 
 All install paths expose the CLI binaries: `pop-launch`, `pop-init-vault`, `pop-unlock`, and `pop-pay` (dashboard launcher).
 
-> **Using Node.js / JavaScript?** Check out [pop-pay (npm)](https://github.com/100xPercent/pop-pay) — `npm i -g pop-pay` or `brew install 100xPercent/tap/pop-pay`. Same security model, same vault format, independent release cycle — safe to switch between runtimes.
+> **Using Node.js / JavaScript?** Check out [pop-pay (npm)](https://github.com/100xPercent/pop-pay) — `npm i -g pop-pay` or `brew install 100xpercent/tap/pop-pay`. Same security model, same vault format, independent release cycle — safe to switch between runtimes.
 
 ## Quick Start (CLI)
 
