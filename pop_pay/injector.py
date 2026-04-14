@@ -20,6 +20,29 @@ from pop_pay.core.state import PopStateTracker
 
 logger = logging.getLogger(__name__)
 
+
+# S0.7 F5: PAN/CVV wrapper that masks in repr/str/format so exception
+# tracebacks with show_locals (rich.traceback, sys.excepthook) cannot leak
+# plaintext. The underlying Unicode data is preserved for JSON serialization
+# and Playwright .fill() calls; only Python-level display renders the mask.
+class _SecretStr(str):
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "'***REDACTED***'"
+
+    def __str__(self) -> str:
+        return "***REDACTED***"
+
+    def __format__(self, spec: str) -> str:
+        return "***REDACTED***"
+
+
+def _seal(value: str) -> str:
+    if isinstance(value, _SecretStr) or not value:
+        return value
+    return _SecretStr(value)
+
 # ISO 3166-1 alpha-2 → E.164 dial prefix.
 # Used to auto-derive the national number from a full E.164 phone string when
 # POP_BILLING_PHONE_COUNTRY_CODE is set — no POP_BILLING_PHONE_NATIONAL needed.
@@ -451,6 +474,12 @@ class PopBrowserInjector:
         For backwards compatibility, the dict is also truthy/falsy based on
         card_filled (via __bool__ semantics of the first value).
         """
+        # S0.7 F5: seal PAN/CVV/expiry at the function boundary so every
+        # frame local (including deep helpers) renders masked when
+        # tracebacks capture show_locals (rich.traceback, sys.excepthook).
+        card_number = _seal(card_number)
+        cvv = _seal(cvv)
+        expiration_date = _seal(expiration_date)
         result = {"card_filled": False, "billing_filled": False, "blocked_reason": ""}
 
         # TOCTOU guard: verify the current page domain matches the approved vendor
