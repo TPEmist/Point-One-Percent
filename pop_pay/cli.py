@@ -64,7 +64,7 @@ def _wait_for_chrome(port: int, timeout: float = 10.0) -> dict | None:
                 import json
 
                 return json.loads(resp.read())
-        except Exception:
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
             time.sleep(0.5)
     return None
 

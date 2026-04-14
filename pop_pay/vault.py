@@ -68,7 +68,7 @@ def _get_machine_id() -> bytes:
                 if "IOPlatformUUID" in line:
                     uid = line.split('"')[-2]
                     return uid.encode()
-        except Exception:
+        except (OSError, subprocess.SubprocessError, IndexError):
             pass
 
     # Windows: MachineGuid from registry
@@ -80,7 +80,7 @@ def _get_machine_id() -> bytes:
             guid, _ = winreg.QueryValueEx(key, "MachineGuid")
             winreg.CloseKey(key)
             return guid.encode()
-        except Exception:
+        except (OSError, ImportError):
             pass
 
     # Fallback: generate a random ID and store it alongside the vault
@@ -100,7 +100,7 @@ def _get_username() -> bytes:
     import pwd
     try:
         return pwd.getpwuid(os.getuid()).pw_name.encode()
-    except Exception:
+    except (KeyError, OSError):
         pass
     return os.environ.get("USER", os.environ.get("USERNAME", "unknown")).encode()
 
@@ -118,7 +118,7 @@ def _derive_key(salt: bytes = None, key_override: bytes = None) -> bytes:
     machine_id = _get_machine_id()
     try:
         username = _get_username()
-    except Exception:
+    except (KeyError, OSError):
         username = b"unknown"
 
     # Try Cython hardened path first (salt stays inside .so, never exposed)
@@ -128,7 +128,7 @@ def _derive_key(salt: bytes = None, key_override: bytes = None) -> bytes:
             key = _vault_core.derive_key(machine_id, username)
             if key is not None:
                 return key
-        except Exception:
+        except (ImportError, AttributeError, OSError):
             pass
         salt = _OSS_SALT
 
@@ -165,7 +165,7 @@ def store_key_in_keyring(key: bytes):
         )
     try:
         keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, key.hex())
-    except Exception as e:
+    except (RuntimeError, OSError) as e:
         raise VaultLocked(
             "Failed to store derived key in OS keyring.",
             cause=e,
@@ -179,7 +179,7 @@ def load_key_from_keyring() -> bytes | None:
         hex_key = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
         if hex_key:
             return bytes.fromhex(hex_key)
-    except Exception:
+    except (ImportError, ValueError, RuntimeError):
         pass
     return None
 
@@ -189,7 +189,7 @@ def clear_keyring():
     try:
         import keyring
         keyring.delete_password(KEYRING_SERVICE, KEYRING_USERNAME)
-    except Exception:
+    except (ImportError, RuntimeError):
         pass
 
 
@@ -248,7 +248,7 @@ def _write_vault_mode(is_passphrase: bool = False):
         try:
             from pop_pay.engine import _vault_core
             mode = "machine-hardened" if _vault_core.is_hardened() else "machine-oss"
-        except Exception:
+        except (ImportError, AttributeError):
             mode = "machine-oss"
     marker = VAULT_DIR / ".vault_mode"
     marker.write_text(mode)

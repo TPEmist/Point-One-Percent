@@ -18,6 +18,16 @@ from typing import Optional
 
 from pop_pay.core.state import PopStateTracker
 
+# Playwright's error base class — used to narrow broad `except Exception` at
+# browser-automation boundaries. Imported lazily so pop_pay still imports when
+# the optional `[browser]` extra is not installed.
+try:
+    from playwright.async_api import Error as _PlaywrightError  # noqa: N812
+except ImportError:
+    class _PlaywrightError(Exception):  # type: ignore[no-redef]
+        """Fallback when playwright is not installed."""
+        pass
+
 logger = logging.getLogger(__name__)
 
 
@@ -621,7 +631,7 @@ class PopBrowserInjector:
 
                 return result
 
-        except Exception as exc:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as exc:
             logger.error("PopBrowserInjector error: %s", exc, exc_info=True)
             return result
         finally:
@@ -629,7 +639,7 @@ class PopBrowserInjector:
             if browser is not None:
                 try:
                     await browser.close()
-                except Exception:
+                except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError):
                     pass
 
     @staticmethod
@@ -675,7 +685,7 @@ class PopBrowserInjector:
                 "PopBrowserInjector: auto-bridge opened URL in CDP browser: %s", url
             )
             return page
-        except Exception as exc:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as exc:
             logger.error(
                 "PopBrowserInjector: failed to open URL '%s': %s", url, exc
             )
@@ -701,7 +711,7 @@ class PopBrowserInjector:
                     card_filled = True
                     # Keep going for expiry/CVV in case they are in sibling iframes
                     # (common in Stripe's multi-iframe layout)
-            except Exception as frame_exc:
+            except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as frame_exc:
                 logger.debug("Frame %s skipped: %s", frame.url, frame_exc)
                 continue
 
@@ -778,7 +788,7 @@ class PopBrowserInjector:
                 card_selectors, expiry_selectors, cvv_selectors
             ])
             return bool(result)
-        except Exception as e:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
             logger.debug("PopBrowserInjector: Shadow DOM piercing failed: %s", e)
             return False
 
@@ -822,14 +832,14 @@ class PopBrowserInjector:
         try:
             await locator.dispatch_event("input")
             await locator.dispatch_event("change")
-        except Exception:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError):
             pass
         # Also fire untrusted blur/focusout as safety net (some frameworks need them)
         try:
             await locator.evaluate("""el => {
                 el.dispatchEvent(new Event('blur', { bubbles: true }));
             }""")
-        except Exception:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError):
             pass
 
     async def _select_option(self, locator, value: str) -> bool:
@@ -848,7 +858,7 @@ class PopBrowserInjector:
             options = await locator.evaluate(
                 "el => Array.from(el.options).map(o => ({value: o.value, text: o.text.trim()}))"
             )
-        except Exception as exc:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as exc:
             logger.warning("PopBrowserInjector: could not read <select> options: %s", exc)
             return False
 
@@ -889,13 +899,13 @@ class PopBrowserInjector:
         # Step 2: Try Playwright native select_option
         try:
             await locator.select_option(value=matched_value)
-        except Exception as exc:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as exc:
             logger.debug("PopBrowserInjector: native select_option failed: %s", exc)
 
         # Step 3: Verify the value stuck
         try:
             actual = await locator.evaluate("el => el.value")
-        except Exception:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError):
             actual = None
 
         if actual == matched_value:
@@ -936,7 +946,7 @@ class PopBrowserInjector:
                 return True
             else:
                 logger.warning("PopBrowserInjector: JS native setter failed for '%s'.", matched_value)
-        except Exception as exc:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as exc:
             logger.warning("PopBrowserInjector: JS native setter error: %s", exc)
 
         return False
@@ -969,7 +979,7 @@ class PopBrowserInjector:
                         if filled:
                             logger.info("PopBrowserInjector: %s injected via get_by_label('%s').", field_name, label)
                             return True
-            except Exception as exc:
+            except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as exc:
                 logger.debug("PopBrowserInjector: get_by_label('%s') failed: %s", label, exc)
 
         # --- Strategy 2: CSS selector locator ---
@@ -990,7 +1000,7 @@ class PopBrowserInjector:
             else:
                 logger.warning("PopBrowserInjector: %s — element found but fill/selection failed.", field_name)
             return filled
-        except Exception as exc:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as exc:
             logger.warning("PopBrowserInjector: could not fill %s: %s", field_name, exc)
             return False
 
@@ -1144,14 +1154,14 @@ class PopBrowserInjector:
 
                 return result
 
-        except Exception as exc:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as exc:
             logger.error("PopBrowserInjector billing injection error: %s", exc, exc_info=True)
             return result
         finally:
             if browser is not None:
                 try:
                     await browser.close()
-                except Exception:
+                except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError):
                     pass
 
     @staticmethod 
@@ -1188,9 +1198,9 @@ class PopBrowserInjector:
                         `;
                         document.head.appendChild(style);
                     }""")
-                except Exception:
+                except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError):
                     pass  # cross-origin frames may reject — that's OK
-        except Exception as e:
+        except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
             logger.debug("PopBrowserInjector: failed to enable blackout: %s", e)
  
     @staticmethod
@@ -1207,6 +1217,6 @@ class PopBrowserInjector:
                 count = await locator.count()
                 if count > 0:
                     return locator
-            except Exception:
+            except (_PlaywrightError, OSError, ValueError, TypeError, RuntimeError, AttributeError):
                 continue
         return None

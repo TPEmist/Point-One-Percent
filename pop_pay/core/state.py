@@ -56,7 +56,7 @@ class PopStateTracker:
             aesgcm = AESGCM(key)
             decrypted = aesgcm.decrypt(nonce, ciphertext, None)
             return decrypted.decode('utf-8')
-        except Exception:
+        except (ValueError, UnicodeDecodeError, OSError):
             return encrypted  # Fallback to raw value (for legacy unencrypted data)
 
     def _init_db(self):

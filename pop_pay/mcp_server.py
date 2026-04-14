@@ -15,7 +15,7 @@ from mcp.server.fastmcp import FastMCP
 try:
     import resource
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-except Exception:
+except (ImportError, ValueError, OSError):
     pass  # Windows or restricted env — best effort
 
 # Load .env from the dedicated config dir first (preferred, keeps credentials out of the
@@ -153,7 +153,7 @@ async def _scan_page(page_url: str) -> dict:
                 return {"flags": ["ssrf_blocked"], "snapshot_id": snapshot_id, "safe": False, "error": "pop-pay does not allow requests to private/internal addresses."}
         except ValueError:
             pass  # hostname (not raw IP) — allow
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
         return {"flags": ["invalid_url"], "snapshot_id": snapshot_id, "safe": False, "error": "Invalid URL."}
 
     # 1. Fetch HTML and check SSL/redirects
@@ -164,7 +164,7 @@ async def _scan_page(page_url: str) -> dict:
 
             if urlparse(str(response.url)).netloc != urlparse(page_url).netloc:
                 flags.append("unexpected_redirect")
-    except Exception as e:
+    except (httpx.HTTPError, OSError) as e:
         flags.append("ssl_anomaly")
         return {"flags": flags, "snapshot_id": snapshot_id, "safe": False, "error": f"Error fetching page: {e}"}
 
@@ -236,7 +236,7 @@ async def _request_human_approval(
                     return False, f"Approval webhook SSRF blocked: private address {_aw_host}"
             except ValueError:
                 pass  # hostname (not raw IP) -- allow
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             return False, "Approval webhook URL is invalid."
 
         try:
@@ -255,7 +255,7 @@ async def _request_human_approval(
                 approved = bool(data.get("approved", False))
                 reason = data.get("reason", "")
                 return approved, reason
-        except Exception as exc:
+        except (httpx.HTTPError, OSError, ValueError, KeyError) as exc:
             _approval_logger.error("Approval webhook failed: %s", exc)
             return False, f"Approval webhook error: {exc}"
 
@@ -401,7 +401,7 @@ async def request_virtual_card(
                     "rejection_reason": seal.rejection_reason if seal.status.lower() == "rejected" else None,
                 }
                 await webhook_client.post(policy.webhook_url, json=payload, timeout=5.0)
-        except Exception:
+        except (httpx.HTTPError, OSError, ValueError):
             pass  # Webhook failure should not block the main payment flow
     if seal.status.lower() == "rejected":
         return f"Payment rejected by guardrails. Reason: {seal.rejection_reason}"
@@ -533,7 +533,7 @@ async def request_purchaser_info(
                 outcome=outcome,
                 rejection_reason=rejection_reason_text,
             )
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             pass  # Audit failure must never block the main flow.
 
     # -------------------------------------------------------------------
@@ -628,7 +628,7 @@ def _ssrf_validate_url(url: str) -> str | None:
                 return "Requests to private/internal addresses are not allowed."
         except ValueError:
             pass  # hostname (not raw IP) -- allow
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
         return "Invalid URL."
     return None
 
@@ -722,7 +722,7 @@ async def request_x402_payment(
                     "reasoning": reasoning,
                 }
                 await webhook_client.post(policy.webhook_url, json=payload, timeout=5.0)
-        except Exception:
+        except (httpx.HTTPError, OSError, ValueError):
             pass
 
     # Promote Pending → Issued

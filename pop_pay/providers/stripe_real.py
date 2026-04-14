@@ -68,7 +68,7 @@ class StripeIssuingProvider(VirtualCardProvider):
                 status="Rejected",
                 rejection_reason=str(e)
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — provider-boundary fallback; wrap any unknown error into a rejected VirtualSeal so the payment flow cannot crash
             return VirtualSeal(
                 seal_id=str(uuid.uuid4()),
                 authorized_amount=0.0,
