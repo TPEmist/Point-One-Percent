@@ -53,6 +53,33 @@ def cmd_init_vault():
             print("Aborted.")
             sys.exit(0)
 
+    # F3: OSS salt consent gate at init time. Non-passphrase init on a
+    # non-hardened build requires explicit consent — POP_ACCEPT_OSS_SALT=1
+    # or interactive y/N when stdin is a TTY.
+    if not args.passphrase:
+        try:
+            from pop_pay.engine import _vault_core
+            _is_hardened = _vault_core.is_hardened()
+        except (ImportError, AttributeError):
+            _is_hardened = False
+        if not _is_hardened:
+            import os as _os
+            if _os.environ.get("POP_ACCEPT_OSS_SALT") == "1":
+                pass
+            elif sys.stdin.isatty():
+                ack = input(
+                    "Proceed with OSS public salt? This offers weaker protection than --passphrase. [y/N]: "
+                ).strip().lower()
+                if ack != "y":
+                    print("Aborted. Re-run with --passphrase, or set POP_ACCEPT_OSS_SALT=1.")
+                    sys.exit(1)
+            else:
+                sys.stderr.write(
+                    "pop-init-vault: OSS public salt requires consent. "
+                    "Set POP_ACCEPT_OSS_SALT=1 or pass --passphrase.\n"
+                )
+                sys.exit(1)
+
     key_override = None
     if args.passphrase:
         from pop_pay.vault import derive_key_from_passphrase, store_key_in_keyring

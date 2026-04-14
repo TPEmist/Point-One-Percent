@@ -290,6 +290,21 @@ def load_vault() -> dict:
                 "Reinstall via PyPI: pip install pop-pay"
             )
 
+    # F3: OSS salt consent gate. machine-oss vaults use a public salt that an
+    # agent with shell execution could derive. Require explicit opt-in via
+    # POP_ACCEPT_OSS_SALT=1. Passphrase / machine-hardened / unknown bypass.
+    if vault_mode == "machine-oss" and os.environ.get("POP_ACCEPT_OSS_SALT") != "1":
+        _warning = (
+            "pop-pay: vault is encrypted with the OSS public salt. "
+            "An agent with shell execution could derive the key from public information."
+        )
+        sys.stdout.write("\u26a0\ufe0f  " + _warning + "\n")
+        sys.stderr.write("\u26a0\ufe0f  " + _warning + "\n")
+        raise ValueError(
+            "OSS-salt vault load refused: set POP_ACCEPT_OSS_SALT=1 to acknowledge, "
+            "or re-init via `pop-pay init-vault --passphrase` for stronger protection."
+        )
+
     blob = VAULT_PATH.read_bytes()
     # Try passphrase-derived key from keyring first (strongest protection)
     passphrase_key = load_key_from_keyring()

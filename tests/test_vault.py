@@ -179,6 +179,47 @@ def test_vault_load_refuses_downgrade_machine_hardened(tmp_path, monkeypatch):
         vault_mod.load_vault()
 
 
+def test_vault_load_refuses_machine_oss_without_consent(tmp_path, monkeypatch):
+    """F3: machine-oss vault must refuse load without POP_ACCEPT_OSS_SALT=1."""
+    pytest.importorskip("cryptography")
+    import pop_pay.vault as vault_mod
+    monkeypatch.setattr(vault_mod, "VAULT_DIR", tmp_path)
+    monkeypatch.setattr(vault_mod, "VAULT_PATH", tmp_path / "vault.enc")
+    (tmp_path / ".vault_mode").write_text("machine-oss")
+    (tmp_path / "vault.enc").write_bytes(b"\x00" * 64)
+    monkeypatch.delenv("POP_ACCEPT_OSS_SALT", raising=False)
+    with pytest.raises(ValueError, match="POP_ACCEPT_OSS_SALT"):
+        vault_mod.load_vault()
+
+
+def test_vault_load_machine_oss_consent_bypass(tmp_path, monkeypatch):
+    """F3: POP_ACCEPT_OSS_SALT=1 bypasses the consent gate (reaches decrypt path)."""
+    pytest.importorskip("cryptography")
+    import pop_pay.vault as vault_mod
+    monkeypatch.setattr(vault_mod, "VAULT_DIR", tmp_path)
+    monkeypatch.setattr(vault_mod, "VAULT_PATH", tmp_path / "vault.enc")
+    (tmp_path / ".vault_mode").write_text("machine-oss")
+    (tmp_path / "vault.enc").write_bytes(b"\x00" * 64)
+    monkeypatch.setenv("POP_ACCEPT_OSS_SALT", "1")
+    with pytest.raises(Exception) as exc_info:
+        vault_mod.load_vault()
+    assert "POP_ACCEPT_OSS_SALT" not in str(exc_info.value)
+
+
+def test_vault_load_passphrase_bypasses_oss_gate(tmp_path, monkeypatch):
+    """F3: passphrase marker bypasses the OSS consent gate entirely."""
+    pytest.importorskip("cryptography")
+    import pop_pay.vault as vault_mod
+    monkeypatch.setattr(vault_mod, "VAULT_DIR", tmp_path)
+    monkeypatch.setattr(vault_mod, "VAULT_PATH", tmp_path / "vault.enc")
+    (tmp_path / ".vault_mode").write_text("passphrase")
+    (tmp_path / "vault.enc").write_bytes(b"\x00" * 64)
+    monkeypatch.delenv("POP_ACCEPT_OSS_SALT", raising=False)
+    with pytest.raises(Exception) as exc_info:
+        vault_mod.load_vault()
+    assert "POP_ACCEPT_OSS_SALT" not in str(exc_info.value)
+
+
 def test_vault_load_refuses_downgrade_legacy_hardened_marker(tmp_path, monkeypatch):
     """Legacy 'hardened' marker (migrated to machine-hardened on read) must also refuse."""
     pytest.importorskip("cryptography")
