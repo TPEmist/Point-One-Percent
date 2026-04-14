@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/DOCTOR.md`** — with KNOWN LIMITATIONS documenting the intentional engine-classify gap (local handler now; typed engine classifier swap deferred to post-refactor round 2 of the paused Error Model Refactor track).
 
 ### Security
+- **F5 — seal PAN/CVV in exception frame locals.** `_SecretStr` wraps card_number / expiry / cvv in `pop_pay/injector.py`; `repr()` / `str()` / `__format__` all render `***REDACTED***`, so `sys.excepthook`, `rich.traceback`, and `faulthandler.show_locals` cannot leak plaintext. Unicode payload preserved for JSON serialization and Playwright `.fill()`.
+- **Flat bounty amounts.** Tier 1 / Tier 2 / Tier 3 set to $500 / $1,000 / $2,000 (per founder).
 - **`check_env_vars` is format-only and content-blind.** `POP_LLM_*` secrets reported as `present (hidden)` / `missing`; no length, prefix, or hash ever emitted.
 - **`check_layer2_probe` is TCP-only.** Connects and disconnects — no HTTP request, no API key transmitted, no quota consumed.
 - **Public vault canary `examples/vault-challenge/vault.enc.challenge`** — Tier 3 bounty target (mirror of npm repo). AES-256-GCM blob with discarded scrypt passphrase + fake card + flag string. Reproducible `gen-challenge.js` / `gen-challenge.py` generators. See `examples/vault-challenge/README.md`.
