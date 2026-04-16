@@ -114,11 +114,12 @@ def test_sqlite_masked_card():
 def test_virtual_seal_repr_redacted():
     """repr(seal) must not contain actual card number or CVV."""
     from pop_pay.core.models import VirtualSeal
+    from pop_pay.core.secret_str import SecretStr
 
     seal = VirtualSeal(
         seal_id="seal-repr-test",
-        card_number="4111111111111111",
-        cvv="999",
+        card_number=SecretStr("4111111111111111"),
+        cvv=SecretStr("999"),
         expiration_date="12/28",
         authorized_amount=50.0,
         status="Issued",
