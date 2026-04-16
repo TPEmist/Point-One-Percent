@@ -1,7 +1,4 @@
-"""Aggregator mirror of the TS version. Identical report shape.
-
-B-class decision uses docs/CATEGORIES_DECISION_CRITERIA.md thresholds verbatim.
-"""
+"""Aggregator mirror of the TS version. Identical report shape."""
 from __future__ import annotations
 import statistics
 from collections import defaultdict

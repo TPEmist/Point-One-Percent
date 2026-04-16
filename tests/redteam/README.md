@@ -35,7 +35,7 @@ POP_REDTEAM=1 python -m tests.redteam.run_corpus --filter B
 
 - Same corpus hash
 - Same aggregator output shape (see `aggregator.py`)
-- Same B-class decision thresholds (per `docs/CATEGORIES_DECISION_CRITERIA.md`)
+- Same B-class decision thresholds (see `GUARDRAIL_BENCHMARK.md` §B-class decision)
 - Bypass rate drift >5pp between TS and Python on the same corpus = parity regression → head-of-eng
 
 ## Engine TODO — retry-exhaustion must surface as `error`, not silent `block`
