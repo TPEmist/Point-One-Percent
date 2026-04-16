@@ -444,3 +444,37 @@ def test_reopen_does_not_revacuum_when_user_version_already_2():
         t2.close()
 
 
+# ---------------------------------------------------------------------------
+# RT-2 R2 N2 — chmod 0600 state db
+# ---------------------------------------------------------------------------
+
+def test_state_db_file_mode_is_0600_on_posix():
+    """POSIX-only enforcement: state DB created 0600 (owner r/w only).
+    Windows no-op is accepted — test skips there."""
+    import platform
+    if platform.system() == "Windows":
+        pytest.skip("POSIX-only enforcement; Windows ACLs out of scope")
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = os.path.join(tmp, "mode.db")
+        t = PopStateTracker(db_path)
+        mode = os.stat(db_path).st_mode & 0o777
+        assert mode == 0o600, f"expected 0o600, got {oct(mode)}"
+        t.close()
+
+
+def test_state_db_mode_reapplied_on_reopen():
+    """If the file mode is widened externally (e.g. via `chmod 644`), a
+    subsequent open of PopStateTracker must restore 0600."""
+    import platform
+    if platform.system() == "Windows":
+        pytest.skip("POSIX-only enforcement; Windows ACLs out of scope")
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = os.path.join(tmp, "mode_reapply.db")
+        t1 = PopStateTracker(db_path)
+        t1.close()
+        os.chmod(db_path, 0o644)
+        assert os.stat(db_path).st_mode & 0o777 == 0o644
+        t2 = PopStateTracker(db_path)
+        assert os.stat(db_path).st_mode & 0o777 == 0o600
+        t2.close()
+

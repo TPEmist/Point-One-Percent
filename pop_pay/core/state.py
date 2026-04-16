@@ -18,6 +18,13 @@ class PopStateTracker:
         # We keep the connection open for the lifetime of the tracker
         # This is especially important for :memory: databases
         self.conn = sqlite3.connect(self.db_path)
+        # RT-2 R2 N2: owner-only permissions on the DB file. POSIX only;
+        # Windows ACLs are intentionally out of scope for this fix.
+        if db_path != ":memory:":
+            try:
+                os.chmod(self.db_path, 0o600)
+            except (OSError, NotImplementedError):
+                pass
         self._init_db()
         self.daily_spend_total = self._get_today_spent()
 
