@@ -15,7 +15,7 @@ pop-pay protects against prompt injection stealing card data, hallucinated purch
 ## 3. Security Primitives
 
 - **Context Isolation Layer**: Utilizes Chrome DevTools Protocol (CDP) injection to handle card data. The raw card credentials never enter the agent's process or LLM context; they are injected directly from a trusted process into the browser DOM.
-- **Intent Verification Engine**: A hybrid keyword-matching and LLM-based guardrail system that evaluates the semantic intent of a purchase. It maintains a 95% accuracy rate across a 20-scenario benchmark of common attack vectors.
+- **Intent Verification Engine**: Hybrid keyword-matching + LLM-based guardrail evaluating semantic purchase intent against configured policy. See docs/GUARDRAIL_BENCHMARK.md for per-model per-category results.
 - **Human Trust Anchor**: A configurable Human-In-The-Loop (HITL) approval mechanism that requires explicit human confirmation for high-value transactions or unrecognized vendors.
 - **Zero-Knowledge Card Surface**: The agent only ever perceives a masked version of the card (e.g., `****-4242`). Real data is stored in an AES-256-GCM encrypted vault, inaccessible to standard agent tools.
 - **Ephemeral Authorization Scope**: Limits every approval to a single-use flow with a Time-of-Check to Time-of-Use (TOCTOU) domain guard, preventing the agent from redirecting an approved session to a malicious domain.
